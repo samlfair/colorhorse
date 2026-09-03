@@ -3,10 +3,10 @@
 	 * Chroma Shape Diagnostics (formerly cylinder-chroma-diagnostics.html/.js).
 	 * Proves (with live-computed charts, not just prose) that the OKLCH
 	 * cylinder's chroma ring/column is a convex ovoid, not a furrowed heart
-	 * shape -- see $lib/cylinder-deform.js's "WHY R IS CLAMPED, THEN
-	 * CONVEXIFIED" doc for the full story this page demonstrates.
+	 * shape -- see the colorhorse package's cylinder-deform.js "WHY R IS
+	 * CLAMPED, THEN CONVEXIFIED" doc for the full story this page demonstrates.
 	 *
-	 * Deliberately NOT importing the real $lib/cylinder-deform.js for the
+	 * Deliberately NOT importing the real cylinder-deform.js for the
 	 * RAW/pre-fix comparisons below: those intentionally reproduce logic
 	 * (e.g. the removed seam-placement scheme) that no longer exists
 	 * anywhere else, on purpose, as a frozen historical reference showing

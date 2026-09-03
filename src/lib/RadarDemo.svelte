@@ -8,7 +8,7 @@
 	// already sit on the same chroma slice) or two when they don't, one full
 	// 360-degree slice per anchor's own shade level -- see +page.svelte's
 	// radarRings derivation. This component only draws what it's given.
-	import { oklchToSrgb, maxInGamutChroma } from "$lib/oklch.js";
+	import { oklchToSrgb, maxInGamutChroma } from "colorhorse";
 
 	let {
 		hueDegrees = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330],

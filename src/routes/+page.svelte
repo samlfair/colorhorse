@@ -27,9 +27,9 @@
 	 * it just doesn't escape the div.
 	 */
 	import { onMount } from "svelte";
-	import { computeCylinderPoints, computeCylinderZLevels } from "$lib/cylinder-deform.js";
-	import { hexToOklch, oklchToSrgb, maxInGamutChroma } from "$lib/oklch.js";
-	import { computeColorScheme } from "$lib/scheme.js";
+	import { computeCylinderPoints, computeCylinderZLevels } from "colorhorse/cylinder-deform";
+	import { hexToOklch, oklchToSrgb, maxInGamutChroma } from "colorhorse";
+	import { computeColorScheme } from "colorhorse/scheme";
 	import compileCSS from "$lib/compileCSS.js";
 	import Logo from "$lib/Logo.svelte"
 	import CircleDemo from "$lib/CircleDemo.svelte"
@@ -206,16 +206,12 @@
 	let chromaOne = $derived(anchorFromColor(a1Color).C)
 	let chromaTwo = $derived(anchorFromColor(a2Color).C)
 
-	$effect(() => console.log({ chromaOne }))
-
 	let hueOneAdjusted = $state(false)
 	let hueTwoAdjusted = $state(false)
 	let lightnessOneAdjusted = $state(false)
 	let lightnessTwoAdjusted = $state(false)
 	let chromaOneAdjusted = $state(false)
 	let chromaTwoAdjusted = $state(false)
-
-	// import { hexToOklch, oklchToSrgb, maxInGamutChroma } from "$lib/oklch.js";
 
 	function getAnchors(a1Color, a2Color, hueOne, hueTwo) {
 		let first = anchorFromColor(a1Color)
@@ -656,9 +652,6 @@
 <svelte:head>
 	<title>Color Horse</title>
 	{@html headerStyles}
-	{#if true}
-		{@html "<style>:root { --pink: pink }</style>"}
-	{/if}
 </svelte:head>
 
 

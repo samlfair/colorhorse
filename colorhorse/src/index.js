@@ -84,7 +84,6 @@ export function generatePalette(colorOne = DEFAULTS.colorOne, colorTwo = DEFAULT
 	} = options;
 
 	const anchorOne = anchorFromHex(colorOne);
-	console.log({ anchorOne })
 	if(anchorOne.C === 0) throw new Error("colorOne has a chroma of zero. Both input colors must have a chroma greater than zero.")
 	const anchorTwo = anchorFromHex(colorTwo);
 	if(anchorTwo.C === 0) throw new Error("colorTwo has a chroma of zero. Both input colors must have a chroma greater than zero.")

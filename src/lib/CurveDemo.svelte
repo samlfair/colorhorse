@@ -1,5 +1,5 @@
 <script>
-	import { hexToOklch, oklchToSrgb, maxInGamutChroma } from "$lib/oklch.js";
+	import { hexToOklch, oklchToSrgb, maxInGamutChroma } from "colorhorse";
 
 	// points: 12 relative chroma values (0-1, one per D-ring hue position)
 	// from the palette's ring taper -- this component only renders the taper,
