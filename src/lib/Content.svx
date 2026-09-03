@@ -1,0 +1,179 @@
+<script module>
+  export { how, hero, intro, palette, hue, shades, lightness, chroma, fade, saturation, desaturation, sphere, combination, programming, oklch, showcase, integrations, creator, credits }
+</script>
+
+{#snippet hero()}
+
+> The *automatic* color scheme generator
+
+{/snippet}
+
+{#snippet intro()}
+
+Color Horse is an automatic color scheme generator. Input two colors, and Color Horse will generate a pallette of 80 compatible colors as named CSS variables.
+
+{/snippet}
+
+{#snippet how()}
+
+## How it works
+
+Color Horse uses color theory to generate a harmonious color scheme from two input colors. It accomplishes this task by converting your colors to a modern color-space called "OKLCH."
+
+In OKLCH, Color Horse extracts three components from each of your colors: hue, lightness, and saturation. Each hue is a number between 0 and 360, which can sit on a circle. By placing the two hues on a circle, Color Horse can then smoothly place another ten points on the circle to create the basis for a palette. Rather than attempting to place the points evenly, which would be impossible, Color Horse uses trigonometry to smoothly distribute available space to allow gentle spreading and clustering.
+
+Try dragging the sliders to see how the hues in your color scheme shift:
+
+{/snippet}
+
+{#snippet palette()}
+
+## Palette
+
+To create your palette, choose a primary and secondary brand color. Drag the sliders to adjust your palette's lightness and saturation.
+
+{/snippet}
+
+{#snippet hue()}
+
+Drag the sliders to move your hues around the color wheel.
+
+{/snippet}
+
+{#snippet shades()}
+
+Next, Color Horse creates ten shades. It bases these shades on a minimum lightness, minimum darkness, and the lightness of the two anchor colors.
+
+{/snippet}
+
+{#snippet lightness(svg)}
+
+Drag the sliders to adjust your palette's lightness.
+
+{/snippet}
+
+{#snippet chroma()}
+
+The saturation is etc.
+
+{/snippet}
+
+{#snippet saturation()}
+
+The snippet is etc.
+
+{/snippet}
+
+{#snippet desaturation()}
+
+Fade is etcetera.
+
+{/snippet}
+
+{#snippet fade()}
+
+Next we can look at the saturation:
+
+{/snippet}
+
+{#snippet sphere()}
+
+Put them together to make a sphere.
+
+{/snippet}
+
+{#snippet combination()}
+
+Turn it around!
+
+{/snippet}
+
+{#snippet programming()}
+
+## Programming
+
+Use CSS variables.
+
+Use the npm package.
+
+{/snippet}
+
+{#snippet oklch()}
+
+> [!note]
+> ## What is OKLCH?
+>
+> OKLCH is a way to map colors in three dimensions. One dimension is lightness (white to black), one is chroma (grey to vibrant), and one is hue (through all the colors of the rainbow). The "OK" prefix is a reference to the fact that the color space does an "okay" job of mapping colors.
+>
+> The goal of OKLCH is to create "perceptual uniformity" between colors. So two colors with the same "lightness" value will look like they are just as light as each other. For example, here are two colors in a conventional color space (HSL) with the same "lightness" value:
+> <table><tbody><tr><td style="--color: hsl(0, 100%, 50%);"></td><td style="--color: hsl(180, 100%, 50%);"></td></tr></tbody></table>
+>
+> The red looks much darker than the blue.
+>
+> Now lets try the same experiment in OKLCH:
+> <table><tbody><tr><td style="--color: oklch(50% 1 0);"></td><td style="--color: oklch(50% 1 180);"></td></tr></tbody></table>
+>
+> These two colors are much closer in lightness. Similarly, if we were to change the chroma (AKA "saturation") or hue, we would find a very consistent shift. This is ideal for creating color schemes, as it ensures that the various colors in your scheme maintain a consistent feeling.
+
+{/snippet}
+
+{#snippet showcase()}
+
+Click a swatch to load an iconic two-color brand combination as your anchors.
+
+{/snippet}
+
+{#snippet integrations()}
+
+Color Horse's palette engine is also published as `colorhorse`, a zero-dependency npm package -- the same math behind this page, usable anywhere.
+
+```sh
+npm install colorhorse
+```
+
+```js
+import { getScheme } from "colorhorse";
+
+getScheme(colorOne, colorTwo);
+```
+
+Pass in your two anchor colors to get the palette back as CSS custom properties, or as a plain JS object keyed by role:
+
+{/snippet}
+
+{#snippet creator()}
+
+This section is a placeholder for information about the creator: a short bio, links, and however else you'd like to introduce yourself.
+
+{/snippet}
+
+{#snippet credits()}
+
+Color Horse builds on a few outside resources:
+
+- **Color math** -- the OKLCH color space, designed by [Björn Ottosson](https://bottosson.github.io/posts/oklab/) (2020).
+- **Icons** -- [Font Awesome Free](https://fontawesome.com), by Fonticons, Inc., under the [Font Awesome Free License](https://fontawesome.com/license/free).
+- **Headings typeface** -- [Fraunces](https://undercase.xyz/fonts/fraunces), by Flavia Zimbardi and Phaedra Charles of Undercase Type.
+- **Body typeface** -- [Fredoka](https://fonts.google.com/specimen/Fredoka), by Milena Brandão, via Google Fonts.
+- **Logo** -- *placeholder: credit the horse mark's designer here.*
+
+{/snippet}
+
+<style>
+
+	blockquote {
+		font-family: Fraunces;
+		padding: 0;
+		margin: 0;
+		font-size: 2em;
+		font-weight: 900;
+		font-style: italic;
+		color: var(--pop-text);
+		text-align: center;
+		text-wrap: balance;
+
+		em {
+			color: var(--pop-text-em);
+		}
+	}
+</style>

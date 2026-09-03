@@ -1,0 +1,448 @@
+/*
+			Inspiration for this stylesheet comes from Normalize.css, Josh Comeau,
+			Barebones, Basic.css, Pico, Typeplate, Simple.css, and more
+		*/
+
+@layer reset, typography, default;
+
+
+@layer default {
+	:root {
+		/* main brand color */
+		/* vertical space between main sections */
+		--large-gap: 3em;
+
+		/* vertical space within content */
+		--small-gap: 2em;
+
+		/* horizontal space between items */
+		--gutter: 2em;
+
+		/* main body maximum width */
+		--width: 900px;
+
+		/* borders */
+		--border-radius-tight: 5px;
+		--border-radius-loose: calc(1rem + 5px);
+
+		/* automatic dark mode */
+		color-scheme: light dark;
+	}
+
+	/* body */
+
+	html {
+		background: var(--main-background);
+		color: var(--primary-text-color);
+	}
+
+	body {
+		align-items: flex-start;
+		display: flex;
+		flex-direction: column;
+		gap: var(--large-gap);
+		margin-inline: auto;
+		overflow-y: scroll;
+	}
+
+	a,
+	a:visited {
+		color: var(--primary-link-color);
+	}
+
+	a:hover {
+		color: var(--primary-link-hover-color);
+	}
+
+	/* frontmatter */
+
+	/* TODO: Only render contents when necessary */
+	nav[aria-label=Contents]:has(>ol:empty),
+	nav[aria-label=Contents]:has(>ol>li:only-of-type>a) {
+		display: none;
+	}
+
+	main>:not(section) {
+		color: var(--primary-heading-color);
+	}
+
+	time {
+		font-weight: 500;
+	}
+
+	/* table of contents */
+
+	nav[aria-label=Contents] {
+
+		/* top-level items */
+		&>ol {
+			list-style: none;
+			padding: 0;
+
+			&:before {
+				content: "Contents";
+				color: var(--primary-heading-color);
+				font-weight: 500;
+			}
+		}
+
+		/* subitems */
+		ol {
+			list-style: none;
+			padding: 0;
+
+			ol {
+				padding-left: 1em;
+			}
+		}
+
+	}
+
+	@media (width >=700px) {
+		nav[aria-label=Contents] {
+			top: var(--large-gap);
+
+			grid-column: 2;
+			grid-row-start: 3;
+			height: 0px;
+			overflow: visible;
+			position: sticky;
+
+			&>ol {
+				height: calc(100vh - var(--large-gap));
+
+				overflow-y: auto;
+				overflow-x: hidden;
+			}
+		}
+	}
+
+	/* header */
+
+	header {
+		color: var(--primary-heading-color);
+
+		align-items: center;
+		justify-content: center;
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: var(--small-gap) var(--gutter);
+
+		a#title,
+		a#logo {
+			color: inherit;
+		}
+
+		#tagline {
+			display: none;
+		}
+
+
+		#logo img {
+			height: 1.3cap;
+			width: auto;
+
+			/*
+				If the logo is colored via the background, then
+				the image itself should hide.
+			*/
+			visibility: hidden;
+		}
+
+		nav {
+			background: var(--soft-background);
+			border-radius: var(--border-radius-tight);
+			border: 1px solid var(--primary-border-color);
+			padding-inline: var(--gutter);
+
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-start;
+			width: 100%;
+
+			ul {
+				list-style: none;
+				display: flex;
+				padding: 1em 0;
+				gap: var(--gutter);
+				flex-wrap: wrap;
+			}
+
+			ul+ul {
+				/*
+					TODO: This should be replaced with a gap decoration
+					at some point in the near future.
+				*/
+				border-top: 1px solid var(--primary-border-color);
+			}
+
+			[aria-current="page"] {
+				color: var(--secondary-link-color);
+			}
+		}
+	}
+
+	nav[aria-label=Breadcrumbs] {
+		text-transform: uppercase;
+		color: var(--primary-link-color);
+
+		a,
+		a:visited {
+			color: inherit;
+		}
+	}
+
+	/* Sidebar */
+
+	body>aside {
+		margin-top: auto;
+	}
+
+	aside nav {
+		margin-inline: auto;
+
+		&>ul {
+			display: flex;
+			flex-direction: row;
+			gap: 2em;
+			justify-content: center;
+		}
+
+		ul {
+			list-style: none;
+			padding-left: 0;
+		}
+
+		li {
+			margin: 0;
+			line-height: 1.7em;
+		}
+
+		&>ul>li {
+			&>a {
+				font-weight: 500;
+			}
+
+			&>ul {
+				font-size: 0.9em;
+				line-height: 1.2em;
+
+				ul {
+					padding-left: 1em;
+				}
+			}
+		}
+	}
+
+	/* main */
+
+	main,
+	article {
+		display: grid;
+		column-gap: 3em;
+		row-gap: 1em;
+
+		&>* {
+			min-width: 0;
+		}
+	}
+
+	@media (width >=700px) {
+		main {
+			grid-template-columns: 3fr 1fr;
+		}
+	}
+
+
+	p:where([itemprop=description]),
+	#content>p:first-of-type {
+		font-size: 1.3em;
+		color: var(--secondary-text-color);
+	}
+
+
+
+	/* content */
+
+
+	a {
+		color: var(--primary-link-color);
+
+		&:hover {
+			color: var(--primary-link-hover-color);
+		}
+	}
+
+	img {
+		border-radius: var(--border-radius-tight);
+	}
+
+	pre,
+	:not(pre)>code {
+		background: linear-gradient(in oklch to bottom left,
+				light-dark(var(--primary-02), var(--primary-09)),
+				light-dark(var(--primary-01), var(--primary-10)));
+		border: 1px solid var(--code-border);
+	}
+
+	blockquote {
+		border-left: 5px solid var(--primary-border-color);
+	}
+
+	th,
+	td {
+		border-bottom: 1px solid var(--border-color-softer);
+	}
+
+	hr {
+		border-top: 1px solid var(--primary-text-color);
+	}
+
+	/* page list */
+
+	&>ul._ {
+		display: flex;
+		flex-direction: column;
+		gap: 1em;
+		list-style: none;
+		padding: 0;
+	}
+
+	article {
+		border: 1px solid var(--primary-border-color);
+		background: var(--soft-background);
+		border-radius: var(--border-radius-loose);
+		padding: 2rem;
+		display: flex;
+		flex-direction: column;
+
+		img {
+			order: -1;
+		}
+
+		a {
+			display: flex;
+			flex-direction: column;
+			row-gap: 1em;
+
+			&>* {
+				margin: 0;
+			}
+		}
+
+		article a,
+		article a:hover {
+			color: unset;
+		}
+
+
+		p {
+			font-size: 1.6rem;
+		}
+	}
+
+
+	/* alerts */
+
+	aside.alert {
+		&.danger {
+			--text: light-dark(var(--danger-02), var(--danger-10));
+			--border: light-dark(var(--danger-05), var(--danger-06));
+			--heading: light-dark(var(--danger-03), var(--danger-09));
+			--background: light-dark(var(--danger-09), var(--danger-03));
+			--icon: '⛔️';
+		}
+
+		&.note {
+			--text: light-dark(var(--info-02), var(--info-10));
+			--border: light-dark(var(--info-05), var(--info-06));
+			--heading: light-dark(var(--info-03), var(--info-09));
+			--background: light-dark(var(--info-09), var(--info-03));
+			--icon: 'ℹ️';
+		}
+
+		&.success {
+			--text: light-dark(var(--tip-02), var(--tip-10));
+			--border: light-dark(var(--tip-05), var(--tip-06));
+			--heading: light-dark(var(--tip-03), var(--tip-09));
+			--background: light-dark(var(--tip-09), var(--tip-03));
+			--icon: '💡';
+		}
+
+		&.warning {
+			--text: light-dark(var(--warning-02), var(--warning-10));
+			--border: light-dark(var(--warning-05), var(--warning-06));
+			--heading: light-dark(var(--warning-03), var(--warning-09));
+			--background: light-dark(var(--warning-09), var(--warning-03));
+			--icon: '⚠️';
+		}
+
+
+		padding: 1.5rem 2rem;
+		background: var(--background);
+		color: var(--text);
+		border-left: 3px solid var(--border);
+		align-self: stretch;
+
+		h2 {
+			color: var(--heading);
+
+			&:before {
+				font-size: 0.8em;
+				margin-right: 0.7rem;
+				opacity: 0.9;
+				content: var(--icon);
+			}
+		}
+	}
+}
+
+/* footer */
+
+footer {
+	text-align: center;
+	/* margin-top: var(--large-gap); */
+}
+
+/* homepage */
+
+body.home {
+
+	/*
+		Single-column layout
+	*/
+	main {
+		grid-template-columns: 1fr;
+	}
+
+	/*
+		Hero tagline
+	*/
+	#tagline {
+		background-image: var(--accent-background);
+		border-radius: var(--border-radius-loose);
+		border: 1px solid var(--accent-border-color);
+		color: var(--accent-text-color);
+		padding-block: var(--large-gap);
+
+		display: block;
+		order: 1;
+		text-align: center;
+		width: 100%;
+	}
+
+	/*
+		Hide breadcrumbs
+	*/
+	[aria-label=Breadcrumbs] {
+		display: none;
+	}
+
+	/*
+		Hide h1
+	*/
+	&>main>h1 {
+		display: none;
+	}
+}

@@ -1,0 +1,30 @@
+{
+  "name": "colors",
+  "version": "2.0.0",
+  "description": "Minimum-bending-energy \"semi-rigid pole\" deformation demos, as a SvelteKit app.",
+  "type": "module",
+  "workspaces": [
+    "colorhorse"
+  ],
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.10",
+    "@sveltejs/kit": "^2.70.3",
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "mdsvex": "^0.12.7",
+    "svelte": "^5.56.10",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  },
+  "dependencies": {
+    "colorhorse": "*",
+    "remark-admonition": "^2.0.0",
+    "remark-alerts": "^0.0.1",
+    "remark-github-alerts": "^0.1.1"
+  }
+}

@@ -1,0 +1,146 @@
+/**
+ * Shared theme + base layout for every demo route EXCEPT /cylinder
+ * (which computes its own theme live from a randomly-seeded 80-color
+ * OKLCH palette -- see its own <style> in +page.svelte). Imported once by
+ * the root +layout.svelte so every route gets it automatically.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Structural tokens */
+  --bg: #0f1420;
+  --panel: #171e2e;
+  --text: #e7ecf5;
+  --muted: #8b96ac;
+  --grid: #232c40;
+
+  /* Shared accent palette */
+  --original: #5a6478; /* faint/undeformed reference points */
+  --accent: #4da3ff;   /* primary "deformed"/active color */
+  --green: #35d07f;    /* a fixed / first special point */
+  --red: #ff5d5d;      /* a moved / anchor / pinned point */
+  --yellow: #f4c542;   /* a support / secondary marker */
+  --ring: #f4f6fb;     /* bright neutral outline (e.g. the color wheel's track) */
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px;
+  align-items: flex-start;
+}
+
+h1 {
+  font-size: 1.15rem;
+  margin: 0 0 4px 0;
+}
+
+p.sub {
+  color: var(--muted);
+  margin: 0 0 20px 0;
+  font-size: 0.9rem;
+  max-width: 68ch;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--grid);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.controls {
+  min-width: 280px;
+  flex: 1 1 280px;
+}
+
+.controls label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 14px 0 6px 0;
+}
+.controls label:first-of-type { margin-top: 0; }
+
+.controls select,
+.controls input[type="range"],
+.controls input[type="number"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.controls select,
+.controls input[type="number"] {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--grid);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.value {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.legend {
+  margin-top: 18px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.legend .swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.stat {
+  margin-top: 18px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+svg {
+  display: block;
+  background: var(--panel);
+  border: 1px solid var(--grid);
+  border-radius: 12px;
+}
+
+button {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--grid);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  margin-top: 6px;
+}
+button:hover { border-color: var(--accent); }
