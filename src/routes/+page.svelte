@@ -27,9 +27,9 @@
 	 * it just doesn't escape the div.
 	 */
 	import { onMount } from "svelte";
-	import { computeCylinderPoints, computeCylinderZLevels } from "colorhorse/cylinder-deform";
-	import { hexToOklch, oklchToSrgb, maxInGamutChroma } from "colorhorse";
-	import { computeColorScheme } from "colorhorse/scheme";
+	import { computeCylinderPoints, computeCylinderZLevels } from "$lib/cylinder-deform.js";
+	import { hexToOklch, oklchToSrgb, maxInGamutChroma } from "$lib/oklch.js";
+	import { computeColorScheme } from "$lib/scheme.js";
 	import compileCSS from "$lib/compileCSS.js";
 	import Logo from "$lib/Logo.svelte"
 	import CircleDemo from "$lib/CircleDemo.svelte"
@@ -138,7 +138,6 @@
 	let elevation = $state(18);
 	let themeMode = $state("system"); // 'light' | 'dark' | 'system'
 	let systemPrefersDark = $state(false);
-	let seeded = $state(false);
 
 	let DEFAULTS = {
 		a1Color: "#888888",
@@ -164,7 +163,6 @@
 		};
 		a1Color = DEFAULTS.a1Color;
 		a2Color = DEFAULTS.a2Color;
-		seeded = true;
 		colorized = true
 
 		if (window.matchMedia) {
@@ -178,18 +176,6 @@
 		}
 
 	});
-
-	function resetAnchorsAndView() {
-		a1Color = DEFAULTS.a1Color;
-		a2Color = DEFAULTS.a2Color;
-		minL = DEFAULTS.minL;
-		maxL = DEFAULTS.maxL;
-		minChroma = DEFAULTS.minChroma;
-		azimuth = DEFAULTS.azimuth;
-		elevation = DEFAULTS.elevation;
-		// Theme mode is deliberately NOT reset -- it's independent of the
-		// anchor/view "reset" scope, matching the old page's behavior.
-	}
 
 	/* ------------------------- derived model ------------------------- */
 	function anchorFromColor(hex) {
@@ -227,7 +213,6 @@
 		const adjustedColorOne = anchorFromColor(oklchToSrgb(first.L, first.C, first.D).hex)
 		const adjustedColorTwo = anchorFromColor(oklchToSrgb(second.L, second.C, second.D).hex)
 
-		// a1Color = oklchToSrgb(first.L, first.C, first.D).hex
 		return [adjustedColorOne, adjustedColorTwo]
 	}
 	
@@ -411,18 +396,7 @@
 
 	let anchorOneLightnessIndex = $derived(cyl.zLevels.findIndex(p => anchors[0].L.toFixed(3) === p.toFixed(3)))
 	let anchorTwoLightnessIndex = $derived(cyl.zLevels.findIndex(p => anchors[1].L.toFixed(3) === p.toFixed(3)))
-	// let anchorOneLightnessIndex = null
-	// let anchorTwoLightnessIndex = null
-	
-	// let anchorOneChromaIndex = $derived(cyl.R.findIndex(p => anchors[0].C.toFixed(3) === p.toFixed(3)))
-	// let anchorTwoChromaIndex = $derived(cyl.R.findIndex(p => anchors[1].C.toFixed(3) === p.toFixed(3)))
-	let anchorOneChromaIndex = null
-	let anchorTwoChromaIndex = null
 
-	let circlePoints = $derived(
-		[...new Set(points.map(point => point.D))]
-	)
-	
 	let screen = $derived(
 		points.map((p) => toScreen(p.D, p.Z, p.R, azimuth, elevation)),
 	);
@@ -583,27 +557,6 @@
 			.map(([k, v]) => `${k}: ${v}`)
 			.join("; "),
 	);
-
-	let paletteRows = $derived(
-		Array.from({ length: NUM_Z }, (_, k) =>
-			points.slice(k * NUM_D, k * NUM_D + NUM_D),
-		),
-	);
-
-	// Which role name(s) -- display names -- own each of the 12 D-index
-	// columns. Every role currently lands on a distinct index (computeColorScheme
-	// picks each role from what's still unclaimed), so today this is always
-	// 0 or 1 label per column, but it's built as a list rather than a single
-	// lookup so a column that ever gets claimed by more than one label (e.g. a
-	// future role sharing a hue with an existing one) still renders correctly
-	// instead of silently dropping one.
-	let columnRoleLabels = $derived.by(() => {
-		const byIndex = Array.from({ length: NUM_D }, () => []);
-		for (const roleName of ROLE_ORDER) {
-			byIndex[scheme.roles[roleName]].push(displayRoleName(roleName));
-		}
-		return byIndex;
-	});
 
 	let schemeCssText = $derived.by(() => {
 		const lines = [
@@ -1086,58 +1039,6 @@
 	</div>
 {/snippet}
 
-{#snippet fullPalette()}
-	<div class="wrap">
-		<div class="palette-panel panel" style="flex: 1 1 auto;">
-			<p class="panel-label">
-				Palette &mdash; 10 rows (Z-levels) &times; 12 columns (D-indices)
-			</p>
-			<table class="palette">
-				<thead>
-					<tr>
-						{#each columnRoleLabels as labels, dIndex (dIndex)}
-							<th
-								class:unassigned={labels.length === 0}
-								title={"D-index " +
-									dIndex +
-									(labels.length ? ": " + labels.join(", ") : " (unassigned)")}
-							>
-								<span>{labels.length ? labels.join(" / ") : "—"}</span>
-							</th>
-						{/each}
-					</tr>
-				</thead>
-				<tbody>
-					{#each paletteRows as row, k (k)}
-						<tr>
-							{#each row as p (p.dIndex)}
-								<td
-									style:background={p.color.hex}
-									class={p.isAnchor
-										? p.anchorPos === 0
-											? "anchor1"
-											: "anchor2"
-										: ""}
-									title={"H=" +
-										p.D.toFixed(1) +
-										"°  L=" +
-										p.Z.toFixed(3) +
-										"  C=" +
-										p.color.clampedC.toFixed(3) +
-										" (rel " +
-										p.R.toFixed(3) +
-										")  " +
-										p.color.hex}
-								></td>
-							{/each}
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	</div>
-{/snippet}
-
 <style>
 	/**
 	 * This page's theme tokens are DERIVED, in CSS, from the 80 palette
@@ -1298,7 +1199,6 @@
 		text-transform: uppercase;
 	}
 
-	thead,
 	tbody,
 	tr {
 		display: contents;
@@ -1308,11 +1208,6 @@
 		display: flex;
 		align-items: center;
 		justify-content: flex-start;
-	}
-
-	thead th {
-		writing-mode: sideways-lr;
-		text-orientation: mixed;
 	}
 
 	td {

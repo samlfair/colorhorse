@@ -11,6 +11,12 @@
  * cylinder-deform.js, scheme.js, oklch.js) is unchanged from the SvelteKit
  * app this package was extracted from -- this file is only the public API
  * layer tying those modules together and shaping their output.
+ *
+ * This is a minimal initial release: the one public export is `getScheme`,
+ * the package's core promised functionality (two colors in, a full 80-color
+ * named-role scheme out). The formatting/utility helpers a fuller release
+ * might add (raw palette grids, CSS output, WCAG contrast, etc.) aren't
+ * part of this surface yet.
  */
 import { hexToOklch, oklchToSrgb, maxInGamutChroma } from "./oklch.js";
 import { computeCylinderPoints } from "./cylinder-deform.js";
@@ -20,7 +26,7 @@ const HUE_COUNT = 12; // fixed: computeColorScheme's harmony-name table (square/
 // analagous/tertiary/...) is defined specifically for a 12-slot wheel -- a
 // different hue count wouldn't have a meaningful scheme name to report.
 
-export const DEFAULTS = {
+const DEFAULTS = {
 	colorOne: "#4da3ff",
 	colorTwo: "#ff6b4d",
 	minLightness: 0.1,
@@ -73,7 +79,7 @@ function anchorFromHex(hex) {
  *   roles: Record<string, object[]>,  // role name -> shadeCount-length array of the same point shape
  * }}
  */
-export function generatePalette(colorOne = DEFAULTS.colorOne, colorTwo = DEFAULTS.colorTwo, options = {}) {
+function generatePalette(colorOne = DEFAULTS.colorOne, colorTwo = DEFAULTS.colorTwo, options = {}) {
 	assertValidHex(colorOne, "colorOne");
 	assertValidHex(colorTwo, "colorTwo");
 	const {
@@ -130,18 +136,8 @@ export function generatePalette(colorOne = DEFAULTS.colorOne, colorTwo = DEFAULT
 	};
 }
 
-/** Flatten a palette's full shade grid into hex strings, row-major (shade 1's 12 hues, then shade 2's, ...). */
-export function paletteToHexGrid(palette) {
-	return palette.shadeGrid.flat().map((point) => point.hex);
-}
-
-/** Same shape as paletteToHexGrid, as {r,g,b} objects instead of hex strings. */
-export function paletteToRgbGrid(palette) {
-	return palette.shadeGrid.flat().map((point) => point.rgb);
-}
-
 /** Role name -> array of hex strings (one per shade). */
-export function paletteToHexScheme(palette) {
+function paletteToHexScheme(palette) {
 	const result = {};
 	for (const [roleName, shadeList] of Object.entries(palette.roles)) {
 		result[roleName] = shadeList.map((point) => point.hex);
@@ -149,80 +145,7 @@ export function paletteToHexScheme(palette) {
 	return result;
 }
 
-/** Role name -> array of {r,g,b} objects (one per shade). */
-export function paletteToRgbScheme(palette) {
-	const result = {};
-	for (const [roleName, shadeList] of Object.entries(palette.roles)) {
-		result[roleName] = shadeList.map((point) => point.rgb);
-	}
-	return result;
-}
-
-/** CSS custom properties text, e.g. `--primary-01: #...;` for every role/shade -- ready to drop into a <style> block. */
-export function paletteToCss(palette, { selector = ":root", prefix = "--" } = {}) {
-	const lines = [`/* ${palette.schemeName} scheme, wheel distance ${palette.wheelDistance} */`, `${selector} {`];
-	for (const [roleName, shadeList] of Object.entries(palette.roles)) {
-		shadeList.forEach((point, shadeIndex) => {
-			const shadeNumber = String(shadeIndex + 1).padStart(2, "0");
-			lines.push(`  ${prefix}${roleName}-${shadeNumber}: ${point.hex};`);
-		});
-	}
-	lines.push("}");
-	return lines.join("\n");
-}
-
-/** One-shot convenience: the full hueCount*shadeCount palette as hex strings. */
-export function getFullPalette(colorOne, colorTwo, options) {
-	return paletteToHexGrid(generatePalette(colorOne, colorTwo, options));
-}
-
-/** One-shot convenience: the 8-role scheme as hex strings (8*shadeCount colors, 80 with the default shadeCount). */
+/** The 8-role scheme as hex strings (8*shadeCount colors, 80 with the default shadeCount). */
 export function getScheme(colorOne, colorTwo, options) {
 	return paletteToHexScheme(generatePalette(colorOne, colorTwo, options));
 }
-
-// ---------------------------------------------------------------------------
-// Small standalone color utilities -- useful on their own, not just as part
-// of a generated palette.
-// ---------------------------------------------------------------------------
-
-/** Parse "#rrggbb" (or "rrggbb") into {r, g, b} (0-255 integers). */
-export function hexToRgb(hex) {
-	assertValidHex(hex, "hex");
-	const clean = hex.replace(/^#/, "");
-	return {
-		r: parseInt(clean.slice(0, 2), 16),
-		g: parseInt(clean.slice(2, 4), 16),
-		b: parseInt(clean.slice(4, 6), 16),
-	};
-}
-
-/** Format {r, g, b} (0-255 integers) as "#rrggbb". */
-export function rgbToHex({ r, g, b }) {
-	const toByteHex = (value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0");
-	return `#${toByteHex(r)}${toByteHex(g)}${toByteHex(b)}`;
-}
-
-function srgbChannelToLinear(channel255) {
-	const channel = channel255 / 255;
-	return channel <= 0.04045 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
-}
-
-/** WCAG relative luminance (0-1) of an sRGB color, from a "#rrggbb" hex string. */
-export function relativeLuminance(hex) {
-	const { r, g, b } = hexToRgb(hex);
-	return 0.2126 * srgbChannelToLinear(r) + 0.7152 * srgbChannelToLinear(g) + 0.0722 * srgbChannelToLinear(b);
-}
-
-/** WCAG contrast ratio (1-21) between two "#rrggbb" hex colors. 4.5+ passes AA for normal text. */
-export function contrastRatio(hexA, hexB) {
-	const luminanceA = relativeLuminance(hexA);
-	const luminanceB = relativeLuminance(hexB);
-	const lighter = Math.max(luminanceA, luminanceB);
-	const darker = Math.min(luminanceA, luminanceB);
-	return (lighter + 0.05) / (darker + 0.05);
-}
-
-// Low-level OKLCH primitives, re-exported for consumers who want to work
-// below the generated-palette level.
-export { hexToOklch, oklchToSrgb, maxInGamutChroma } from "./oklch.js";

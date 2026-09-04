@@ -9,6 +9,11 @@ classifies 8 of them into named roles (`primary`, `secondary`, `tertiary`,
 `accent`, `success`, `info`, `warning`, `danger`) by hue distance to reference
 red/green/blue/yellow. Zero runtime dependencies.
 
+This is a minimal initial release: `getScheme` is the one export, covering
+the package's core promised functionality. A fuller release may add
+formatting/utility helpers (raw palette grids, ready-made CSS output, WCAG
+contrast, etc.) on top of this once there's real demand for them.
+
 ## Install
 
 ```sh
@@ -18,64 +23,27 @@ npm install colorhorse
 ## Quick start
 
 ```js
-import { getScheme, getFullPalette } from "colorhorse";
+import { getScheme } from "colorhorse";
 
 getScheme("#3366cc", "#cc6633");
 // { primary: ["#...", ... 10 hex], secondary: [...], tertiary: [...],
 //   accent: [...], success: [...], info: [...], warning: [...], danger: [...] }
 // -- 80 colors total with the default 10 shades per role
-
-getFullPalette("#3366cc", "#cc6633");
-// [ "#...", ... 120 hex ]  -- every hue x shade combination, not just the 8 roles
 ```
 
-Both work with no arguments too -- `getScheme()` / `getFullPalette()` fall
-back to a built-in default color pair.
-
-## The full result: `generatePalette`
-
-`getScheme`/`getFullPalette` are one-shot convenience wrappers around
-`generatePalette`, which does the actual computation once and returns
-everything -- reach for it directly if you want more than one output shape
-without recomputing:
-
-```js
-import { generatePalette, paletteToHexScheme, paletteToCss } from "colorhorse";
-
-const palette = generatePalette("#3366cc", "#cc6633", {
-	minLightness: 0.1, // darkest shade's lightness, 0-1
-	maxLightness: 0.98, // lightest shade's lightness, 0-1
-	minChroma: 0.2, // floor on saturation, 0-1 (relative to the sRGB gamut boundary)
-	shadeCount: 10, // shades per role/hue
-});
-
-palette.schemeName; // e.g. "analagous", "square", "complementary", ...
-palette.wheelDistance; // 1-6, how far apart the two anchors landed on the 12-hue wheel
-palette.roles.primary[0]; // { hue, lightness, chroma, hex, rgb, hueIndex, shadeIndex, isAnchor }
-
-paletteToHexScheme(palette); // same shape as getScheme(), from an already-computed palette
-paletteToCss(palette); // "--primary-01: #...; ..." ready for a <style> block
-```
+`getScheme()` works with no arguments too -- it falls back to a built-in
+default color pair.
 
 ## API
 
-- **`generatePalette(colorOne?, colorTwo?, options?)`** — the core computation.
-  Returns `{ schemeName, wheelDistance, anchors, hueCount, shadeCount, shadeGrid, roles }`.
-  `shadeGrid[shadeIndex][hueIndex]` and every entry in `roles` are the same
-  point shape: `{ hue, lightness, chroma, hex, rgb, hueIndex, shadeIndex, isAnchor }`.
-- **`getFullPalette(colorOne?, colorTwo?, options?)`** — `hueCount * shadeCount` hex strings (120 by default).
-- **`getScheme(colorOne?, colorTwo?, options?)`** — role name → hex array (80 colors total by default).
-- **`paletteToHexGrid(palette)`** / **`paletteToRgbGrid(palette)`** — format an existing `generatePalette()` result as flat hex/`{r,g,b}` arrays.
-- **`paletteToHexScheme(palette)`** / **`paletteToRgbScheme(palette)`** — format an existing result as role → hex/`{r,g,b}` array.
-- **`paletteToCss(palette, { selector = ":root", prefix = "--" })`** — CSS custom properties text.
-- **`hexToRgb(hex)`** / **`rgbToHex({r, g, b})`** — plain sRGB conversion.
-- **`relativeLuminance(hex)`** / **`contrastRatio(hexA, hexB)`** — WCAG luminance/contrast (1-21; 4.5+ passes AA for normal text).
-- **`hexToOklch`**, **`oklchToSrgb`**, **`maxInGamutChroma`** — the underlying OKLCH primitives, re-exported for anyone who wants to work below the generated-palette level.
-
-`options` on any of the above: `{ minLightness = 0.1, maxLightness = 0.98, minChroma = 0.2, shadeCount = 10 }`.
-Hue count is fixed at 12 — the harmony names in `schemeName` (square,
-analagous, tertiary, antianalagous, antitertiary, complementary) are only
-meaningful for a 12-slot wheel.
+- **`getScheme(colorOne?, colorTwo?, options?)`** — role name → hex array
+  (80 colors total by default).
+  - `colorOne`, `colorTwo`: `"#rrggbb"` hex strings. Both must have nonzero
+    chroma (not pure gray/black/white) -- the whole scheme is built by
+    smoothly relaxing 12 hues between two real hues.
+  - `options`: `{ minLightness = 0.1, maxLightness = 0.98, minChroma = 0.2, shadeCount = 10 }`.
+    Hue count is fixed at 12 -- the palette's internal harmony classification
+    (square, analagous, tertiary, ...) is only meaningful for a 12-slot wheel.
 
 ## Where this came from
 

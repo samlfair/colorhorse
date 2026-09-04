@@ -5,9 +5,7 @@
 	"type": "module",
 	"main": "src/index.js",
 	"exports": {
-		".": "./src/index.js",
-		"./cylinder-deform": "./src/cylinder-deform.js",
-		"./scheme": "./src/scheme.js"
+		".": "./src/index.js"
 	},
 	"files": [
 		"src",

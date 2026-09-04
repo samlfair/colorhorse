@@ -1,11 +1,6 @@
 <script>
 	const demos = [
-		{ href: '/circle', label: 'Circle', desc: 'Points evenly spaced on a circle; Point A is fixed, dragging Point N bends the ring like a flexible pole.' },
-		{ href: '/color-wheel', label: 'Color Wheel', desc: 'The same circular model applied to hue degrees instead of position.' },
-		{ href: '/curve', label: 'Curve', desc: 'Points on a baseline with a single draggable interior anchor.' },
-		{ href: '/curved-line', label: 'Curved Line', desc: 'Combines the line and curve models: points cluster near a bent pole\'s poles.' },
-		{ href: '/line', label: 'Line', desc: 'An open line with four dynamically-reassigned pins.' },
-		{ href: '/', label: 'OKLCH Cylinder Palette', desc: '120 points on a 3D cylinder, doubling as an OKLCH color palette with a live theme.' },
+		{ href: '/', label: 'Color Horse', desc: '120 points on a 3D cylinder, doubling as an OKLCH color palette with a live theme -- the hue, lightness, and chroma demos live here too.' },
 		{ href: '/diagnostics', label: 'Chroma Shape Diagnostics', desc: 'A dev tool proving the cylinder\'s chroma ring is a convex ovoid, not a furrowed heart shape.' }
 	];
 </script>
