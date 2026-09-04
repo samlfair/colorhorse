@@ -10,7 +10,10 @@
 
 {#snippet intro()}
 
-Color Horse is an automatic color scheme generator. Input two colors, and Color Horse will generate a pallette of 80 compatible colors as named CSS variables.
+Color Horse generates a harmonious color scheme from any two colors. It uses modern color science to select complimentary colors that maintain a sense of perceptual uniformity.
+
+To begin, try choosing your own colors below.
+
 
 {/snippet}
 
@@ -18,11 +21,9 @@ Color Horse is an automatic color scheme generator. Input two colors, and Color 
 
 ## How it works
 
-Color Horse uses color theory to generate a harmonious color scheme from two input colors. It accomplishes this task by converting your colors to a modern color-space called "OKLCH."
+Color Horse uses a color space called "OKLCH" to generate palettes. OKLCH emphasizes _perceptual uniformity_ between different color shades. That means you can choose a red and a blue (or any two colors) that have a similar feeling of richness or lightness.
 
-In OKLCH, Color Horse extracts three components from each of your colors: hue, lightness, and saturation. Each hue is a number between 0 and 360, which can sit on a circle. By placing the two hues on a circle, Color Horse can then smoothly place another ten points on the circle to create the basis for a palette. Rather than attempting to place the points evenly, which would be impossible, Color Horse uses trigonometry to smoothly distribute available space to allow gentle spreading and clustering.
-
-Try dragging the sliders to see how the hues in your color scheme shift:
+To begin, Color Horse extracts the hue from each of your colors. These two hues can be placed on a circle.
 
 {/snippet}
 
@@ -30,61 +31,66 @@ Try dragging the sliders to see how the hues in your color scheme shift:
 
 ## Palette
 
-To create your palette, choose a primary and secondary brand color. Drag the sliders to adjust your palette's lightness and saturation.
+Choose your brand's primary and secondary colors. These colors should have some contrast. Neither color can be white, black, or grey. (Neutrals have no hue, so they can't be used to interpolate other colors.)
+
+After choosing your colors, set the darkest, lightest, and most desaturated shades in your palette.
 
 {/snippet}
 
 {#snippet hue()}
 
-Drag the sliders to move your hues around the color wheel.
+In basic color palettes, the hues have a uniform spacing around the color wheel. In the real world, this is a very rare pattern. Instead of spacing the colors evenly, Color Horse creates a smooth gradual distribution, so some colors are slightly closer together and some are slightly farther apart. You can see how the spacing changes as you change the hues in your two input colors.
 
 {/snippet}
 
 {#snippet shades()}
 
-Next, Color Horse creates ten shades. It bases these shades on a minimum lightness, minimum darkness, and the lightness of the two anchor colors.
+Next, Color Horse extracts the lightness from each of your input colors. This gives us two starting points to create a gradient of shades from light to dark. Color palettes typically use different shades for different elements — backgrounds, buttons, text, headings.
+
 
 {/snippet}
 
 {#snippet lightness(svg)}
 
-Drag the sliders to adjust your palette's lightness.
+Color Horse creates eight shades — in addition to the two provided by the two input colors — and places them smoothly around the inputs, resulting in ten shades from light to dark. You can also set the lightest and darkest shade to increase or reduce the palette's contrast.
 
 {/snippet}
 
 {#snippet chroma()}
 
-The saturation is etc.
+After hue and lightness, OKLCH uses one more property to identify each color: saturation, or "chroma." Chroma is just as important as hue in defining a color. Chroma is the difference between brown and red, beige and yellow, grey and blue.
+
+When we place our colors on a circle by hue, we can also represent their saturation as their position on the circle's radius, where the center of the circle is grey (the same for all colors) and the circumference of the circle is a fully-saturated rainbow.
 
 {/snippet}
 
 {#snippet saturation()}
 
-The snippet is etc.
+As you'll see below, every shade in our palette has a different chroma. So if your two input colors have different shades, they won't exist in the same "chroma circle." Nonetheless, they are anchor points for the saturation of every other color in the palette. As you adjust their saturation, you'll see the rest of the palette shift.
 
 {/snippet}
 
 {#snippet desaturation()}
 
-Fade is etcetera.
+Color palettes typically lower the saturation of the lightest and darkest colors of the palette. This makes the mid-range colors the most vibrant while the colors used for text and backgrounds are softer.
 
 {/snippet}
 
 {#snippet fade()}
 
-Next we can look at the saturation:
+By lowering the saturation of the lightest and darkest shades, we create a curve in the lightness gradient. A stronger curve will create a softer palette. A straighter curve will create a more vibrant palette.
 
 {/snippet}
 
 {#snippet sphere()}
 
-Put them together to make a sphere.
+These three properties (lightness, chroma, and hue) can describe virtually any color (including many that your computer can't even display accurately).By choosing colors that have harmonious relationships between these three variables, we create a set of colors that have a sense of perceptual uniformity, which can be very pleasing to the eye. We can actually visualize this process in three dimensions.
 
 {/snippet}
 
 {#snippet combination()}
 
-Turn it around!
+By plotting hue on a circle, lightness on a vertical axis, and chroma on a radial axis, our color palette forms a watermelon shape in three dimensions. Because these colors form a smooth three-dimensional shape, we can speculate that they will also create a harmonious palette.
 
 {/snippet}
 
@@ -103,33 +109,33 @@ Use the npm package.
 > [!note]
 > ## What is OKLCH?
 >
-> OKLCH is a way to map colors in three dimensions. One dimension is lightness (white to black), one is chroma (grey to vibrant), and one is hue (through all the colors of the rainbow). The "OK" prefix is a reference to the fact that the color space does an "okay" job of mapping colors.
->
-> The goal of OKLCH is to create "perceptual uniformity" between colors. So two colors with the same "lightness" value will look like they are just as light as each other. For example, here are two colors in a conventional color space (HSL) with the same "lightness" value:
-> <table><tbody><tr><td style="--color: hsl(0, 100%, 50%);"></td><td style="--color: hsl(180, 100%, 50%);"></td></tr></tbody></table>
->
-> The red looks much darker than the blue.
->
-> Now lets try the same experiment in OKLCH:
-> <table><tbody><tr><td style="--color: oklch(50% 1 0);"></td><td style="--color: oklch(50% 1 180);"></td></tr></tbody></table>
->
-> These two colors are much closer in lightness. Similarly, if we were to change the chroma (AKA "saturation") or hue, we would find a very consistent shift. This is ideal for creating color schemes, as it ensures that the various colors in your scheme maintain a consistent feeling.
+> To learn more about OKLCH, read [Lea Verou's excellent explanation](https://lea.verou.me/blog/2020/04/lch-colors-in-css-what-why-and-how/),
 
 {/snippet}
 
 {#snippet showcase()}
 
-Click a swatch to load an iconic two-color brand combination as your anchors.
+Looking for inspiration? Try out some iconic color combinations from famous brands.
 
 {/snippet}
 
-{#snippet integrations()}
+{#snippet integrations(cssCopy, jsCopy)}
 
-Color Horse's palette engine is also published as `colorhorse`, a zero-dependency npm package -- the same math behind this page, usable anywhere.
+To use this palette, you can copy paste the variables directly into your website's CSS:
+
+{@render cssCopy()}
+
+To use the variables in an app, copy-paste the following JavaScript object:
+
+{@render jsCopy()}
+
+Color Horse also exists as a zero-dependency npm package called `colorhorse`. Install the package to use `colorhorse` to programmatically generate color schemes.
 
 ```sh
 npm install colorhorse
 ```
+
+Pass two colors to the utility function.
 
 ```js
 import { getScheme } from "colorhorse";
@@ -137,25 +143,28 @@ import { getScheme } from "colorhorse";
 getScheme(colorOne, colorTwo);
 ```
 
-Pass in your two anchor colors to get the palette back as CSS custom properties, or as a plain JS object keyed by role:
+> [!warning]
+> ## Bugs ahoy
+>
+> Please note that this package is in beta. Feel free to use it, but please report bugs on GitHub.
 
 {/snippet}
 
 {#snippet creator()}
 
-This section is a placeholder for information about the creator: a short bio, links, and however else you'd like to introduce yourself.
+Hi! My name is Sam. I'm the author of a static blog generator called [Vowel](https://vowel.cc). I wanted a way for Vowel users to create unique, beautiful color schemes for their websites. That's how I got the idea for Color Horse.
+
+Do you have a cool project? I'm currently looking for my next role. I'm a technical writer and full-stack developer interested in information, publishing, and community. Feel free to shoot me a message on [LinkedIn](https://linkedin.com/in/samlittlefair) or [Bluesky](https://bsky.app/profile/littlefair.ca).
 
 {/snippet}
 
 {#snippet credits()}
 
-Color Horse builds on a few outside resources:
+This project is inspired by all of the creativity in the web dev community, especially developers working on color problems, like [Lea Verou](https://lea.verou.me/blog/2020/04/lch-colors-in-css-what-why-and-how/), [Adam Argyle](https://nerdy.dev/), and [David Aerne](https://bsky.app/profile/meodai.bsky.social). It's also worth mentioning that the branding of this website is not dissimilar to other [horse-themed design blogs](https://frontend.horse/).
 
-- **Color math** -- the OKLCH color space, designed by [Björn Ottosson](https://bottosson.github.io/posts/oklab/) (2020).
-- **Icons** -- [Font Awesome Free](https://fontawesome.com), by Fonticons, Inc., under the [Font Awesome Free License](https://fontawesome.com/license/free).
-- **Headings typeface** -- [Fraunces](https://undercase.xyz/fonts/fraunces), by Flavia Zimbardi and Phaedra Charles of Undercase Type.
-- **Body typeface** -- [Fredoka](https://fonts.google.com/specimen/Fredoka), by Milena Brandão, via Google Fonts.
-- **Logo** -- *placeholder: credit the horse mark's designer here.*
+The icons are from [Font Awesome](https://fontawesome.com), except for the horse icons, which are by [Lewen Design](https://thenounproject.com/creator/lewen.design) via Noun Project.
+
+The heading font is [Fraunces](https://undercase.xyz/fonts/fraunces) by Undercase
 
 {/snippet}
 

@@ -280,9 +280,6 @@
 
 	pre,
 	:not(pre)>code {
-		background: linear-gradient(in oklch to bottom left,
-				light-dark(var(--primary-02), var(--primary-09)),
-				light-dark(var(--primary-01), var(--primary-10)));
 		border: 1px solid var(--code-border);
 	}
 
@@ -347,34 +344,34 @@
 
 	aside.alert {
 		&.danger {
-			--text: light-dark(var(--danger-02), var(--danger-10));
-			--border: light-dark(var(--danger-05), var(--danger-06));
-			--heading: light-dark(var(--danger-03), var(--danger-09));
-			--background: light-dark(var(--danger-09), var(--danger-03));
+			--text: var(--danger-text);
+			--border: var(--danger-border);
+			--heading: var(--danger-heading);
+			--background: var(--danger-background);
 			--icon: '⛔️';
 		}
 
 		&.note {
-			--text: light-dark(var(--info-02), var(--info-10));
-			--border: light-dark(var(--info-05), var(--info-06));
-			--heading: light-dark(var(--info-03), var(--info-09));
-			--background: light-dark(var(--info-09), var(--info-03));
+			--text: var(--info-text);
+			--border: var(--info-border);
+			--heading: var(--info-heading);
+			--background: var(--info-background);
 			--icon: 'ℹ️';
 		}
 
 		&.success {
-			--text: light-dark(var(--tip-02), var(--tip-10));
-			--border: light-dark(var(--tip-05), var(--tip-06));
-			--heading: light-dark(var(--tip-03), var(--tip-09));
-			--background: light-dark(var(--tip-09), var(--tip-03));
+			--text: var(--success-text);
+			--border: var(--success-border);
+			--heading: var(--success-heading);
+			--background: var(--success-background);
 			--icon: '💡';
 		}
 
 		&.warning {
-			--text: light-dark(var(--warning-02), var(--warning-10));
-			--border: light-dark(var(--warning-05), var(--warning-06));
-			--heading: light-dark(var(--warning-03), var(--warning-09));
-			--background: light-dark(var(--warning-09), var(--warning-03));
+			--text: var(--warning-text);
+			--border: var(--warning-border);
+			--heading: var(--warning-heading);
+			--background: var(--warning-background);
 			--icon: '⚠️';
 		}
 

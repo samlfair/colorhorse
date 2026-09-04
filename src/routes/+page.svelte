@@ -38,6 +38,8 @@
 	import CurveDemo from "$lib/CurveDemo.svelte"
 	import Shuffle from "$lib/Shuffle.svelte"
 	import Contrast from "$lib/Contrast.svelte"
+	import Copy from "$lib/Copy.svelte"
+	import Check from "$lib/Check.svelte"
 	import * as content from "./../lib/Content.svx"
 
 	const NUM_D = 12;
@@ -111,13 +113,16 @@
 	// widely-cited hex values, not exact brand guideline colors.
 	const BRAND_SWATCHES = [
 		{ name: "IKEA", colorOne: "#0058a3", colorTwo: "#ffda1a" },
-		{ name: "Shell", colorOne: "#ffd500", colorTwo: "#dd1d21" },
 		{ name: "FedEx", colorOne: "#4d148c", colorTwo: "#ff6600" },
 		{ name: "Mastercard", colorOne: "#eb001b", colorTwo: "#f79e1b" },
 		{ name: "Pepsi", colorOne: "#004b93", colorTwo: "#e32934" },
-		{ name: "BP", colorOne: "#007a33", colorTwo: "#ffc72c" },
-		{ name: "Burger King", colorOne: "#d62300", colorTwo: "#f3a93d" },
-		{ name: "T-Mobile", colorOne: "#e20074", colorTwo: "#1a1a1a" },
+		{ name: "Barclays", colorOne: "#00aeef", colorTwo: "#00395d" },
+		{ name: "London Underground", colorOne: "#000099", colorTwo: "#cc3333" },
+		{ name: "McDonalds", colorOne: "#bd0017", colorTwo: "#ffc836" },
+		{ name: "NFL", colorOne: "#013369", colorTwo: "#d50a0a"},
+		{ name: "Dunkin", colorOne: "#ff671f", colorTwo: "#da1884"},
+		{ name: "Cadbury", colorOne: "#2D006B", colorTwo: "#9C7E46" },
+		{ name: "Subway", colorOne: "#ffCB0A", colorTwo: "#009743" }
 	];
 
 	function randomAnchorHex() {
@@ -234,6 +239,33 @@
 		color-scheme: light dark;`)
 
 	const dynamicVariables = `--main-background: light-dark(var(--primary-10), var(--primary-02));
+		--code-background: light-dark(var(--secondary-09), var(--secondary-03));
+
+		--primary-link-color: light-dark(var(--primary-05), var(--primary-08));
+		--primary-link-hover-color: light-dark(var(--primary-07), var(--primary-09));
+		--panel-heading: light-dark(var(--primary-04), var(--primary-07));
+		--heading: light-dark(var(--primary-04), var(--primary-07));
+
+		--success-text: light-dark(var(--success-02), var(--success-10));
+		--success-border: light-dark(var(--success-05), var(--success-06));
+		--success-heading: light-dark(var(--success-03), var(--success-09));
+		--success-background: light-dark(var(--success-09), var(--success-03));
+
+		--info-text: light-dark(var(--info-02), var(--info-10));
+		--info-border: light-dark(var(--info-05), var(--info-06));
+		--info-heading: light-dark(var(--info-03), var(--info-09));
+		--info-background: light-dark(var(--info-09), var(--info-03));
+
+		--warning-text: light-dark(var(--warning-02), var(--warning-10));
+		--warning-border: light-dark(var(--warning-05), var(--warning-06));
+		--warning-heading: light-dark(var(--warning-03), var(--warning-09));
+		--warning-background: light-dark(var(--warning-09), var(--warning-03));
+
+		--danger-text: light-dark(var(--danger-02), var(--danger-10));
+		--danger-border: light-dark(var(--danger-05), var(--danger-06));
+		--danger-heading: light-dark(var(--danger-03), var(--danger-09));
+		--danger-background: light-dark(var(--danger-09), var(--danger-03));
+
 		--panel: light-dark(var(--primary-09), var(--primary-03));
 		--border: light-dark(var(--primary-08), var(--primary-04));
 		--outline: light-dark(var(--primary-01), var(--primary-10));
@@ -243,23 +275,28 @@
 		--ring: light-dark(var(--accent-05), var(--primary-05));
 		--menu: light-dark(var(--tertiary-09), var(--tertiary-03));
 		--title: light-dark(var(--primary-05), var(--primary-06));
-		--pop-text: light-dark(var(--secondary-06), var(--secondary-07));
-		--pop-text-em: light-dark(var(--primary-06), var(--primary-07));
+		--pop-text: light-dark(var(--secondary-06), var(--secondary-05));
+		--pop-text-em: light-dark(var(--secondary-04), var(--secondary-07));
 		--button: light-dark(var(--primary-04), var(--primary-07));
 
-		--background-cta-primary: light-dark(var(--tertiary-05), var(--tertiary-05));
-		--border-cta-primary: light-dark(var(--tertiary-04), var(--tertiary-05));
-		--icon-cta-primary: light-dark(var(--tertiary-08), var(--tertiary-08));
-		--text-cta-primary: light-dark(var(--tertiary-10), var(--tertiary-10));
+		--background-cta-primary: light-dark(var(--primary-05), var(--primary-05));
+		--border-cta-primary: light-dark(var(--primary-04), var(--primary-05));
+		--icon-cta-primary: light-dark(var(--primary-08), var(--primary-08));
+		--text-cta-primary: light-dark(var(--primary-10), var(--primary-10));
 
-		--background-cta-secondary: light-dark(var(--tertiary-08), var(--tertiary-04));
-		--border-cta-secondary: light-dark(var(--tertiary-07), var(--tertiary-03));
-		--icon-cta-secondary: light-dark(var(--tertiary-09), var(--tertiary-06));
-		--text-cta-secondary: light-dark(var(--tertiary-10), var(--tertiary-10));
+		--background-cta-secondary: light-dark(var(--primary-08), var(--primary-04));
+		--border-cta-secondary: light-dark(var(--primary-07), var(--primary-03));
+		--icon-cta-secondary: light-dark(var(--primary-05), var(--primary-06));
+		--text-cta-secondary: light-dark(var(--primary-04), var(--primary-10));
+
+		
+		--background-success: light-dark(var(--tip-06), var(--tip-04));
+		--icon-success: light-dark(var(--tip-09), var(--tip-09));
 
 `
 
 	const lightOverrideVariables = `--main-background: var(--primary-10);
+		--code-background: var(--secondary-09);
 		--panel: var(--primary-09);
 		--border: var(--primary-08);
 		--guide: var(--primary-07);
@@ -269,23 +306,54 @@
 		--menu: var(--tertiary-09);
 		--title: var(--primary-05);
 		--pop-text: var(--secondary-06);
-		--pop-text-em: var(--primary-06);
+		--pop-text-em: var(--secondary-04);
 		--button: var(--primary-04);
 
-		--background-cta-primary: var(--tertiary-05);
-		--border-cta-primary: var(--tertiary-04);
-		--icon-cta-primary: var(--tertiary-08);
-		--text-cta-primary: var(--tertiary-10);
+		
+		--primary-link-color: var(--primary-05);
+		--primary-link-hover-color: var(--primary-07);
+		--panel-heading: var(--primary-04);
+		--heading: var(--primary-05);
+
+		--success-text: var(--success-02);
+		--success-border: var(--success-05);
+		--success-heading: var(--success-03);
+		--success-background: var(--success-09);
+
+		--info-text: var(--info-02);
+		--info-border: var(--info-05);
+		--info-heading: var(--info-03);
+		--info-background: var(--info-09);
+
+		--warning-text: var(--warning-02);
+		--warning-border: var(--warning-05);
+		--warning-heading: var(--warning-03);
+		--warning-background: var(--warning-09);
+
+		--danger-text: var(--danger-02);
+		--danger-border: var(--danger-05);
+		--danger-heading: var(--danger-03);
+		--danger-background: var(--danger-09);
 
 
-		--background-cta-secondary: var(--tertiary-08);
-		--border-cta-secondary: var(--tertiary-07);
-		--icon-cta-secondary: var(--tertiary-09);
-		--text-cta-secondary: var(--tertiary-10);
+		--background-cta-primary: var(--primary-05);
+		--border-cta-primary: var(--primary-04);
+		--icon-cta-primary: var(--primary-08);
+		--text-cta-primary: var(--primary-10);
+
+
+		--background-cta-secondary: var(--primary-08);
+		--border-cta-secondary: var(--primary-07);
+		--icon-cta-secondary: var(--primary-05);
+		--text-cta-secondary: var(--primary-04);
+
+		--background-success: var(--tip-06);
+		--icon-success: var(--tip-09);
 
 		`		
 
 	const darkOverrideVariables = `--main-background: var(--primary-02);
+		--code-background: var(--secondary-03);
 		--panel: var(--primary-03);
 		--border: var(--primary-04);
 		--guide: var(--primary-05);
@@ -293,21 +361,51 @@
 		--text: var(--primary-10);
 		--ring: var(--primary-05);
 
+		
+		--primary-link-color: var(--primary-08);
+		--primary-link-hover-color: var(--primary-09);
+		--panel-heading: var(--primary-07);
+		--heading: var(--primary-07);
+
+		--success-text: var(--success-10);
+		--success-border: var(--success-06);
+		--success-heading: var(--success-09);
+		--success-background: var(--success-03);
+
+		--info-text: var(--info-10);
+		--info-border: var(--info-06);
+		--info-heading: var(--info-09);
+		--info-background: var(--info-03);
+
+		--warning-text: var(--warning-10);
+		--warning-border: var(--warning-06);
+		--warning-heading: var(--warning-09);
+		--warning-background: var(--warning-03);
+
+		--danger-text: var(--danger-10);
+		--danger-border: var(--danger-06);
+		--danger-heading: var(--danger-09);
+		--danger-background: var(--danger-03);
+
+
 		--menu: var(--tertiary-03);
 		--title: var(--primary-06);
 		--pop-text: var(--secondary-07);
-		--pop-text-em: var(--primary-07);
-		--button: var(--primary-07);
+		--pop-text-em: var(--secondary-05);
+		--button: var(--secondary-07);
 
-		--background-cta-primary: var(--tertiary-05);
-		--border-cta-primary: var(--tertiary-05);
-		--icon-cta-primary: var(--tertiary-07);
-		--text-cta-primary: var(--tertiary-10);
+		--background-cta-primary: var(--primary-05);
+		--border-cta-primary: var(--primary-05);
+		--icon-cta-primary: var(--primary-07);
+		--text-cta-primary: var(--primary-10);
 
-		--background-cta-secondary: var(--tertiary-04);
-		--border-cta-secondary: var(--tertiary-03);
-		--icon-cta-secondary: var(--tertiary-06);
-		--text-cta-secondary: var(--tertiary-10);
+		--background-cta-secondary: var(--primary-04);
+		--border-cta-secondary: var(--primary-03);
+		--icon-cta-secondary: var(--primary-06);
+		--text-cta-secondary: var(--primary-10);
+
+		--background-success: var(--tip-06);
+		--icon-success: var(--tip-09);
 		`	
 
 	const cssVariables = $derived(toggleDarkMode
@@ -507,64 +605,9 @@
 		Accent: invertDistanceMap(ACCENT_SHADE_DISTANCE, resolvedThemeIsDark),
 	}));
 
-	// Example-content colors: the same agnostic-shade table applied to Primary
-	// (for the general CTA) and each status role, so the alert boxes below are
-	// built from real computed shades, not hand-picked colors.
-	const SHOWCASE_ROLES = {
-		primary: "Primary",
-		success: "Tip",
-		info: "Info",
-		warning: "Warning",
-		danger: "Danger",
-	};
-	const SHOWCASE_PROPS = [
-		"panel",
-		"border",
-		"border-hover",
-		"button",
-		"button-hover",
-	];
-
-	let showcaseVars = $derived.by(() => {
-		const isDark = resolvedThemeIsDark;
-		const hexFor = (roleName, shadeNum) =>
-			points[(shadeNum - 1) * NUM_D + scheme.roles[roleName]].color.hex;
-		const vars = {};
-		for (const [key, roleName] of Object.entries(SHOWCASE_ROLES)) {
-			for (const prop of SHOWCASE_PROPS) {
-				vars[`--${key}-${prop}`] = hexFor(
-					roleName,
-					shadeAtDistance(SHADE_DISTANCE[prop], isDark),
-				);
-			}
-			vars[`--${key}-heading`] = hexFor(
-				roleName,
-				shadeAtDistance(SHADE_DISTANCE.text, isDark),
-			);
-		}
-		vars["--link"] = hexFor(
-			"Primary",
-			shadeAtDistance(SHADE_DISTANCE.link, isDark),
-		);
-		vars["--placeholder"] = hexFor(
-			"Primary",
-			shadeAtDistance(SHADE_DISTANCE.placeholder, isDark),
-		);
-		return vars;
-	});
-	let showcaseStyleText = $derived(
-		Object.entries(showcaseVars)
-			.map(([k, v]) => `${k}: ${v}`)
-			.join("; "),
-	);
 
 	let schemeCssText = $derived.by(() => {
 		const lines = [
-			"/* Scheme: " +
-				scheme.schemeName +
-				" (Primary/Secondary wheel distance " +
-				scheme.wheelDistance +
-				") */",
 			":root {",
 		];
 		for (const roleName of ROLE_ORDER) {
@@ -594,12 +637,33 @@
 			const hexValues = Array.from(
 				{ length: NUM_Z },
 				(_, shadeIndex) => `"${points[shadeIndex * NUM_D + dIndex].color.hex}"`,
-			).join(", ");
-			lines.push("  " + roleName.toLowerCase() + ": [" + hexValues + "],");
+			).join(`,\n    `);
+			lines.push("  " + roleName.toLowerCase() + `: [\n    ` + hexValues + `\n  ],`);
 		}
 		lines.push("}");
 		return lines.join("\n");
 	});
+
+	let cssCopied = $state([])
+	let cssCopyTimeout
+
+	let jsCopied = $state([])
+	let jsCopyTimeout
+
+	async function handleCopy(text, toggle, timeout) {
+		console.log({toggle})
+		try {
+			await navigator.clipboard.writeText(text)
+			toggle.push(1)
+			console.log(toggle)
+			clearTimeout(timeout)
+			timeout = setTimeout(() => {
+				toggle.shift()
+			}, 1000)
+		} catch(e) {
+			console.error("Failed to copy:", e)
+		}
+	}
 </script>
 
 <svelte:head>
@@ -637,9 +701,6 @@
 		{@render content.intro()}
 	</section>
 
-	<section>
-		{@render showcaseSection()}
-	</section>
 
 	{@render controls()}
 
@@ -652,6 +713,14 @@
 	</div>
 
 	<section>
+		{@render content.shades()}
+	</section>
+
+	<div class="panel">
+		{@render lineDemo()}
+	</div>
+
+	<section>
 		{@render content.chroma()}
 	</section>
 
@@ -659,13 +728,6 @@
 		{@render radarDemo()}
 	</div>
 
-	<section>
-		{@render content.shades()}
-	</section>
-
-	<div class="panel">
-		{@render lineDemo()}
-	</div>
 
 	<section>
 		{@render content.desaturation()}
@@ -684,8 +746,7 @@
 	{@render content.oklch()}
 
 	<section>
-		{@render content.programming()}
-		{@render cssText()}
+		{@render showcaseSection()}
 	</section>
 
 	<section>
@@ -862,9 +923,6 @@
 		</label>
 {/snippet}
 
-{#snippet cssText()}
-	<pre>{schemeCssText}</pre>
-{/snippet}
 
 {#snippet showcaseSection()}
 	<h2>Showcase</h2>
@@ -881,7 +939,6 @@
 					a2Color = brandSwatch.colorTwo;
 				}}
 			>
-				{brandSwatch.name}
 			</button>
 		{/each}
 	</div>
@@ -889,18 +946,20 @@
 
 {#snippet integrationsSection()}
 	<h2>Integrations</h2>
-	{@render content.integrations()}
-	<h3>CSS variables</h3>
-	<pre>{schemeCssText}</pre>
-	<h3>JavaScript object</h3>
-	<pre>{schemeObjectText}</pre>
+	{@render content.integrations(cssCopy, jsCopy)}
+{/snippet}
+
+{#snippet cssCopy()}
+<pre><button onclick={() => handleCopy(schemeCssText, cssCopied, cssCopyTimeout)}><Copy />Copy</button>{#if cssCopied.length}<span class="copied"><Check /></span>{/if}{schemeCssText}</pre>
+{/snippet}
+
+{#snippet jsCopy()}
+<pre><button onclick={() => handleCopy(schemeObjectText, jsCopied, jsCopyTimeout)}><Copy />Copy</button>{#if jsCopied.length}<span class="copied"><Check /></span>{/if}{schemeObjectText}</pre>
 {/snippet}
 
 {#snippet creatorSection()}
 	<h2>Creator</h2>
-	<div class="placeholder">
 		{@render content.creator()}
-	</div>
 {/snippet}
 
 {#snippet creditsSection()}
@@ -1133,6 +1192,7 @@
 		width: 100%;
 		font-size: 1.7em;
 		font-family: Fraunces;
+		color: var(--heading);
 		font-weight: 600;
 		text-transform: uppercase;
 	}
@@ -1142,7 +1202,7 @@
 		font-family: Fraunces;
 		font-weight: 600;
 		font-style: italic;
-		color: var(--primary-04);
+		color: var(--panel-heading);
 		margin-block: 0;
 	}
 
@@ -1151,17 +1211,17 @@
 		width: 100%;
 	}
 
-	aside h2:has(~h2) {
+	:global(aside h2:has(~h2)) {
 		display: none;
 	}
 
-	aside h2 {
-		font-size: 1.8em;
+	:global(aside h2) {
+		font-size: 1.6em;
 		font-family: Fraunces;
 		font-style: italic;
 	}
 
-	h2:before {
+	:global(h2:before) {
 		display: none;
 	}
 
@@ -1305,7 +1365,7 @@
 
 	.swatch {
 		background: linear-gradient(90deg, var(--swatch-color-one) 50%, var(--swatch-color-two) 50%);
-		border: 1px solid var(--border);
+		border: 1px solid black;
 		border-radius: 8px;
 		height: 64px;
 		color: #fff;
@@ -1332,15 +1392,58 @@
 		border: 2px solid var(--ring);
 	}
 
-	pre {
+	:global(pre) {
 		margin-top: 16px;
-		background: var(--main-background);
-		border: 1px solid var(--border);
-		height: 10lh;
+		background: var(--code-background);
+		max-height: 10lh;
 		border-radius: 8px;
 		padding: 14px 16px;
 		max-width: 100%;
-		overflow: auto
+		overflow: auto;
+		position: relative;
+	}
+
+	pre button {
+		position: absolute;
+		top: 2vi;
+		right: 2vi;
+		display: flex;
+		justify-content: flex-start;
+		align-items: center;
+		gap: 1vi;
+		font-weight: 500;
+		font-size: 1em;
+		color: var(--text-cta-secondary);
+		background: var(--background-cta-secondary);
+
+
+		:global(svg) {
+			display: inline-block;
+			height: 1em;
+		}
+
+
+		:global(path) {
+			fill: var(--text-cta-secondary);
+		}
+	}
+
+	pre .copied {
+		position: absolute;
+		bottom: 2vi;
+		right: 2vi;
+		height: 1.5em;
+		background: var(--background-success);
+		display: inline-block;
+		aspect-ratio: 1/1;
+		border-radius: 50%;
+		padding: 0.5em;
+		box-sizing: content-box;
+		font-size: 1em;
+
+		:global(path) {
+			fill: var(--icon-success);
+		}
 	}
 
 	.scroll {
@@ -1402,7 +1505,8 @@
 		gap: 0.5lh;
 		margin: auto;
 		max-width: max-content;
-		width: max-content;
+		width: 100%;
+		justify-content: center;
 	}
 
 	button.cta {

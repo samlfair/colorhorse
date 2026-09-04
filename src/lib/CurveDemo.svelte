@@ -12,8 +12,6 @@
 		primaryColor = "#3388ff",
 	} = $props();
 
-	$effect(() => console.log({ points }))
-
 	const curveChartBounds = { leftX: 20, rightX: 580, baselineY: 90, maxChromaOffset: 70 };
 
 	function chromaToChartX(pointIndex, totalPointCount) {
