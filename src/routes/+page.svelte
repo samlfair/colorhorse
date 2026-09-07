@@ -156,6 +156,14 @@
 	};
 
 	let colorized = $state(false)
+	// The anchor-derived clamps below (darkerL/lighterL/lowerChromaR) must
+	// not run against a1Color/a2Color's neutral PLACEHOLDER values (see
+	// their declaration -- "#cccccc"/"#dddddd" are pure gray, so their
+	// relative chroma is ~0): without this guard, minChroma gets clamped
+	// down to ~0 on that very first render, and since the clamps only ever
+	// push a value DOWN (never back up), it stays stuck at 0 forever, even
+	// after onMount seeds real, vivid anchor colors below.
+	let anchorsSeeded = $state(false)
 
 	onMount(() => {
 		DEFAULTS = {
@@ -170,6 +178,7 @@
 		a1Color = DEFAULTS.a1Color;
 		a2Color = DEFAULTS.a2Color;
 		colorized = true
+		anchorsSeeded = true
 
 		if (window.matchMedia) {
 			const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -195,8 +204,14 @@
 	let hueTwo = $derived(anchorFromColor(a2Color).D)
 	let lightnessOne = $derived(anchorFromColor(a1Color).L)
 	let lightnessTwo = $derived(anchorFromColor(a2Color).L)
-	let chromaOne = $derived(anchorFromColor(a1Color).C)
-	let chromaTwo = $derived(anchorFromColor(a2Color).C)
+	// Relative chroma (0-1, fraction of that hue/lightness's own gamut
+	// boundary) -- NOT absolute OKLCH chroma (which for sRGB tops out
+	// somewhere around 0.1-0.4 depending on hue/lightness, nowhere near a
+	// 0-1 range). The saturation sliders bind to this relative value so the
+	// full slider travel is always meaningful, regardless of which hue is
+	// selected.
+	let chromaOne = $derived(anchorFromColor(a1Color).R)
+	let chromaTwo = $derived(anchorFromColor(a2Color).R)
 
 	let hueOneAdjusted = $state(false)
 	let hueTwoAdjusted = $state(false)
@@ -225,8 +240,8 @@
 	function resetSaturation() {
 		chromaOneAdjusted = false;
 		chromaTwoAdjusted = false;
-		chromaOne = anchorFromColor(a1Color).C;
-		chromaTwo = anchorFromColor(a2Color).C;
+		chromaOne = anchorFromColor(a1Color).R;
+		chromaTwo = anchorFromColor(a2Color).R;
 	}
 	// Fade has no per-anchor override of its own (its one slider, minChroma,
 	// is a global floor, not a value extracted from either color input) --
@@ -250,8 +265,8 @@
 		if(hueTwoAdjusted) second.D = hueTwo
 		if(lightnessOneAdjusted) first.L = lightnessOne
 		if(lightnessTwoAdjusted) second.L = lightnessTwo
-		if(chromaOneAdjusted) first.C = chromaOne
-		if(chromaTwoAdjusted) second.C = chromaTwo
+		if(chromaOneAdjusted) first.C = chromaOne * maxInGamutChroma(first.L, first.D)
+		if(chromaTwoAdjusted) second.C = chromaTwo * maxInGamutChroma(second.L, second.D)
 
 		const adjustedColorOne = anchorFromColor(oklchToSrgb(first.L, first.C, first.D).hex)
 		const adjustedColorTwo = anchorFromColor(oklchToSrgb(second.L, second.C, second.D).hex)
@@ -283,6 +298,7 @@
 		--primary-link-hover-color: light-dark(var(--primary-07), var(--primary-09));
 		--panel-heading: light-dark(var(--primary-04), var(--primary-07));
 		--heading: light-dark(var(--primary-04), var(--primary-07));
+		--accent-soft: light-dark(var(--accent-08), var(--accent-04));
 
 		--success-text: light-dark(var(--success-02), var(--success-10));
 		--success-border: light-dark(var(--success-05), var(--success-06));
@@ -352,6 +368,7 @@
 		--primary-link-hover-color: var(--primary-07);
 		--panel-heading: var(--primary-04);
 		--heading: var(--primary-05);
+		--accent-soft: var(--accent-08);
 
 		--success-text: var(--success-02);
 		--success-border: var(--success-05);
@@ -404,6 +421,7 @@
 		--primary-link-hover-color: var(--primary-09);
 		--panel-heading: var(--primary-07);
 		--heading: var(--primary-07);
+		--accent-soft: var(--accent-04);
 
 		--success-text: var(--success-10);
 		--success-border: var(--success-06);
@@ -459,15 +477,46 @@
 
 	let darkerL = $derived(Math.min(anchors[0].L, anchors[1].L));
 	let lighterL = $derived(Math.max(anchors[0].L, anchors[1].L));
+	let lowerChromaR = $derived(Math.min(anchors[0].R, anchors[1].R));
+	// If an anchor's own lightness is dragged (via the Primary/Secondary
+	// Color Lightness sliders) all the way to black or white, darkerL/lighterL
+	// hit 0/1 too -- collapsing the Darkest/Lightest Shade sliders' dynamic
+	// bound to their OTHER fixed end (max=Math.min(darkerL,0.3) -> 0, or
+	// min=Math.max(lighterL,0.95) -> 1) and leaving them a zero-width, totally
+	// undraggable range. LIGHTNESS_RAMP_MARGIN keeps a sliver of always-usable
+	// range on both sliders no matter how extreme an anchor gets, and the
+	// clamp effects below compare against these same margined values -- not
+	// the raw darkerL/lighterL -- so the effect and the slider's own max/min
+	// attribute always agree instead of fighting each other.
+	const LIGHTNESS_RAMP_MARGIN = 0.02;
+	let darkestShadeCeiling = $derived(Math.max(Math.min(darkerL, 0.3), LIGHTNESS_RAMP_MARGIN));
+	let lightestShadeFloor = $derived(Math.min(Math.max(lighterL, 0.95), 1 - LIGHTNESS_RAMP_MARGIN));
+	// The Minimum Saturation slider's own `max` attribute must be gated the
+	// same way as the $effect below: before anchorsSeeded, lowerChromaR is
+	// computed from the achromatic a1Color/a2Color PLACEHOLDERS (~0), and a
+	// native <input type="range"> silently clamps its OWN value to whatever
+	// `max` is the moment the browser parses it -- independent of the
+	// $effect entirely, and before onMount even runs. That clamp sticks
+	// (nothing un-clamps a range input when max later increases), which is
+	// what was pinning minChroma at 0 even after the $effect got gated.
+	let minChromaSliderMax = $derived(anchorsSeeded ? lowerChromaR : 1);
 
 	// Minimum Lightness can never be brighter than the darker anchor's L;
 	// Maximum Lightness can never be darker than the lighter anchor's L --
 	// see cylinder-deform.js's model for why (Z-level stack extremes).
 	$effect(() => {
-		if (minL > darkerL) minL = darkerL;
+		if (anchorsSeeded && minL > darkestShadeCeiling) minL = darkestShadeCeiling;
 	});
 	$effect(() => {
-		if (maxL < lighterL) maxL = lighterL;
+		if (anchorsSeeded && maxL < lightestShadeFloor) maxL = lightestShadeFloor;
+	});
+	// Minimum Saturation is a floor applied to every non-anchor point (see
+	// cylinder-deform.js's computeCylinderR/computeCylinderRGrid), so it can
+	// never exceed the less-saturated anchor's own relative chroma (R) --
+	// otherwise that anchor's own neighborhood would get floored ABOVE the
+	// anchor's actual color, the same contradiction minL/maxL avoid above.
+	$effect(() => {
+		if (anchorsSeeded && minChroma > lowerChromaR) minChroma = lowerChromaR;
 	});
 
 	let cyl = $derived(
@@ -851,6 +900,37 @@
 	{@render content.oklch()}
 
 	<section>
+		{@render content.selection()}
+	</section>
+
+	<div class="scheme">
+			<div class="swatch" style="--color: var(--danger-background)">
+				<div class="swatch" style="--color: var(--danger-border)"></div>
+			</div>
+			<div class="swatch" style="--color: var(--warning-background)">
+				<div class="swatch" style="--color: var(--warning-border)"></div>
+			</div>
+			<div class="swatch" style="--color: var(--info-background)">
+				<div class="swatch" style="--color: var(--info-border)"></div>
+			</div>
+			<div class="swatch" style="--color: var(--success-background)">
+				<div class="swatch" style="--color: var(--success-border)"></div>
+			</div>
+			<div class="swatch" style="--color: var(--accent-soft)">
+				<div class="swatch" style="--color: var(--code-background)"></div>
+			</div>
+			<div class="swatch" style="--color: var(--menu)">
+				<div class="swatch" style="--color: var(--icon-cta-primary)"></div>
+			</div>
+			<div class="swatch" style="--color: var(--panel)">
+				<div class="swatch" style="--color: var(--pop-text-em)"></div>
+			</div>
+			<div class="swatch" style="--color: var(--main-background); border: 1px solid var(--border);">
+				<div class="swatch" style="--color: var(--background-cta-primary)"></div>
+			</div>
+	</div>
+
+	<section>
 		{@render showcaseSection()}
 	</section>
 
@@ -879,7 +959,7 @@
 			<input
 				type="range"
 				min="0"
-				max="1"
+				max={minChromaSliderMax}
 				step="0.01"
 				bind:value={minChroma}
 				onfocus={captureMinChromaBeforeFadeTouch}
@@ -899,8 +979,8 @@
 		<label>Primary Color Lightness
 			<input
 				type="range"
-				min="0"
-				max="1"
+				min={darkestShadeCeiling}
+				max={lightestShadeFloor}
 				step="0.001"
 				bind:value={lightnessOne}
 				oninput={() => lightnessOneAdjusted = true}
@@ -909,8 +989,8 @@
 		<label>Secondary Color Lightness
 			<input
 				type="range"
-				min="0"
-				max="1"
+				min={darkestShadeCeiling}
+				max={lightestShadeFloor}
 				step="0.001"
 				bind:value={lightnessTwo}
 				oninput={() => lightnessTwoAdjusted = true}
@@ -920,7 +1000,7 @@
 			<input
 				type="range"
 				min="0"
-				max={Math.min(darkerL, 0.3)}
+				max={darkestShadeCeiling}
 				step="0.001"
 				bind:value={minL}
 			/>
@@ -928,7 +1008,7 @@
 		<label>Lightest Color
 			<input
 				type="range"
-				min={Math.max(lighterL, 0.95)}
+				min={lightestShadeFloor}
 				max="1"
 				step="0.001"
 				bind:value={maxL}
@@ -1096,7 +1176,7 @@
 					<input
 						type="range"
 						min="0"
-						max={Math.min(darkerL, 0.3)}
+						max={darkestShadeCeiling}
 						step="0.01"
 						bind:value={minL}
 					/>
@@ -1104,7 +1184,7 @@
 				<label>Lightest Shade
 					<input
 						type="range"
-						min={Math.max(lighterL, 0.95)}
+						min={lightestShadeFloor}
 						max="1"
 						step="0.01"
 						bind:value={maxL}
@@ -1114,7 +1194,7 @@
 					<input
 						type="range"
 						min="0"
-						max="1"
+						max={minChromaSliderMax}
 						step="0.01"
 						bind:value={minChroma}
 					/>
@@ -1670,6 +1750,39 @@
 		:global(svg) {
 			height: 1.2em;
 			display: inline;
+		}
+	}
+
+	.scheme {
+		width: 100%;
+		display: flex;
+		flex-wrap: wrap-reverse;
+		flex-direction: row-reverse;
+		gap: 1vi;
+		border-radius: calc(5px + 1vi);
+		justify-content: stretch;
+		align-items: stretch;
+		justify-content: space-evenly;
+
+		.swatch {
+			min-width: 150px;
+			max-width: 30%;
+			width: 100%;
+			flex: 1;
+			border: none;
+			display: flex;
+			flex-wrap: wrap;
+			background: var(--color);
+			height: max-content;
+			margin: 1vi;
+			aspect-ratio: 1 / 1;
+			padding: 0.2vi;
+		}
+
+		.swatch .swatch {
+			min-width: 30%;
+			max-width: 40%;
+			padding: 0.1vi;
 		}
 	}
 
