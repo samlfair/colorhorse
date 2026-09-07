@@ -1,5 +1,5 @@
 <script module>
-  export { how, hero, intro, palette, hue, shades, lightness, chroma, fade, saturation, desaturation, sphere, combination, programming, oklch, showcase, integrations, creator, credits }
+  export { how, hero, intro, palette, hue, shades, lightness, chroma, fade, saturation, desaturation, sphere, combination, selection, programming, oklch, showcase, integrations, creator, credits }
 </script>
 
 {#snippet hero()}
@@ -84,13 +84,32 @@ By lowering the saturation of the lightest and darkest shades, we create a curve
 
 {#snippet sphere()}
 
-These three properties (lightness, chroma, and hue) can describe virtually any color (including many that your computer can't even display accurately).By choosing colors that have harmonious relationships between these three variables, we create a set of colors that have a sense of perceptual uniformity, which can be very pleasing to the eye. We can actually visualize this process in three dimensions.
+These three properties (lightness, chroma, and hue) can describe virtually any color (including many that your computer can't even display accurately). By choosing colors that have harmonious relationships between these three variables, we create a set of colors that have a sense of perceptual uniformity, which can be very pleasing to the eye. We can actually visualize this process in three dimensions.
 
 {/snippet}
 
 {#snippet combination()}
 
 By plotting hue on a circle, lightness on a vertical axis, and chroma on a radial axis, our color palette forms a watermelon shape in three dimensions. Because these colors form a smooth three-dimensional shape, we can speculate that they will also create a harmonious palette.
+
+{/snippet}
+
+{#snippet selection()}
+
+For a website, a simple color palette scheme a few hues for brand colors and a few hues for "semantic" colors that have generic meanings (like red for "danger"). Color Horse automatically chooses these colors for you:
+
+- Primary (your first input) <div class="swatch" style="--color: var(--primary-05);"></div>
+- Secondary (your second input) <div class="swatch" style="--color: var(--secondary-05);"></div>
+- Tertiary (symmetrical hue of second input) <div class="swatch" style="--color: var(--tertiary-05);"></div>
+- Accent (opposite hue of first input) <div class="swatch" style="--color: var(--accent-05);"></div>
+- Info (a blue) <div class="swatch" style="--color: var(--info-05);"></div>
+- Success (a green) <div class="swatch" style="--color: var(--tip-05);"></div>
+- Warning (a yellow or orange) <div class="swatch" style="--color: var(--warning-05);"></div>
+- Danger (a red) <div class="swatch" style="--color: var(--danger-05);"></div>
+
+The result is a simple, cohesive color scheme.
+
+The full palette includes four more hues not included in the color scheme. You could use these hues if you like, but for most color schemes eight colors is more than enough.
 
 {/snippet}
 
@@ -119,7 +138,7 @@ Looking for inspiration? Try out some iconic color combinations from famous bran
 
 {/snippet}
 
-{#snippet integrations(cssCopy, jsCopy)}
+{#snippet integrations(cssCopy, jsCopy, aseDownload)}
 
 To use this palette, you can copy paste the variables directly into your website's CSS:
 
@@ -128,6 +147,10 @@ To use this palette, you can copy paste the variables directly into your website
 To use the variables in an app, copy-paste the following JavaScript object:
 
 {@render jsCopy()}
+
+Working in a design tool instead? Download the palette as an Adobe Swatch Exchange file, importable into Photoshop, Illustrator, InDesign, Affinity, and Figma or Sketch via a plugin:
+
+{@render aseDownload()}
 
 Color Horse also exists as a zero-dependency npm package called `colorhorse`. Install the package to use `colorhorse` to programmatically generate color schemes.
 
@@ -144,7 +167,7 @@ getScheme(colorOne, colorTwo);
 ```
 
 > [!warning]
-> ## Bugs ahoy
+> ## Bugs ahead
 >
 > Please note that this package is in beta. Feel free to use it, but please report bugs on GitHub.
 
@@ -184,5 +207,14 @@ The heading font is [Fraunces](https://undercase.xyz/fonts/fraunces) by Undercas
 		em {
 			color: var(--pop-text-em);
 		}
+	}
+
+	.swatch {
+		display: inline-block;
+		height: 0.8em;
+		aspect-ratio: 1/1;
+		background: var(--color);
+		border-radius: 50%;
+		border: 1px solid black;
 	}
 </style>

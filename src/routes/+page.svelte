@@ -31,6 +31,7 @@
 	import { hexToOklch, oklchToSrgb, maxInGamutChroma } from "$lib/oklch.js";
 	import { computeColorScheme } from "$lib/scheme.js";
 	import compileCSS from "$lib/compileCSS.js";
+	import { buildAseFile } from "$lib/ase.js";
 	import Logo from "$lib/Logo.svelte"
 	import CircleDemo from "$lib/CircleDemo.svelte"
 	import RadarDemo from "$lib/RadarDemo.svelte"
@@ -203,6 +204,43 @@
 	let lightnessTwoAdjusted = $state(false)
 	let chromaOneAdjusted = $state(false)
 	let chromaTwoAdjusted = $state(false)
+
+	// Each panel's Reset button: drop that panel's override so getAnchors()
+	// falls back to the color inputs again, and snap the sliders themselves
+	// back to those same color-extracted values (they don't move on their
+	// own just because the override flag flipped -- $derived only recomputes
+	// when a1Color/a2Color change, not when *Adjusted does).
+	function resetHue() {
+		hueOneAdjusted = false;
+		hueTwoAdjusted = false;
+		hueOne = anchorFromColor(a1Color).D;
+		hueTwo = anchorFromColor(a2Color).D;
+	}
+	function resetLightness() {
+		lightnessOneAdjusted = false;
+		lightnessTwoAdjusted = false;
+		lightnessOne = anchorFromColor(a1Color).L;
+		lightnessTwo = anchorFromColor(a2Color).L;
+	}
+	function resetSaturation() {
+		chromaOneAdjusted = false;
+		chromaTwoAdjusted = false;
+		chromaOne = anchorFromColor(a1Color).C;
+		chromaTwo = anchorFromColor(a2Color).C;
+	}
+	// Fade has no per-anchor override of its own (its one slider, minChroma,
+	// is a global floor, not a value extracted from either color input) --
+	// reset here means "back to whatever it was before the user touched
+	// THIS slider," captured on focus (before any drag/keyboard change) and
+	// left alone otherwise, including when minChroma changes via the OTHER
+	// Minimum Saturation slider in the main palette panel.
+	let minChromaBeforeFadeTouch = $state(DEFAULTS.minChroma);
+	function captureMinChromaBeforeFadeTouch() {
+		minChromaBeforeFadeTouch = minChroma;
+	}
+	function resetFade() {
+		minChroma = minChromaBeforeFadeTouch;
+	}
 
 	function getAnchors(a1Color, a2Color, hueOne, hueTwo) {
 		let first = anchorFromColor(a1Color)
@@ -644,6 +682,73 @@
 		return lines.join("\n");
 	});
 
+	// Same 80 colors again, shaped for buildAseFile(): one named group per
+	// role, one named color entry per shade -- Adobe Swatch Exchange import
+	// for design tools (Photoshop, Illustrator, Affinity, Figma/Sketch via
+	// plugin).
+	let aseGroups = $derived.by(() =>
+		ROLE_ORDER.map((roleName) => {
+			const dIndex = scheme.roles[roleName];
+			return {
+				name: displayRoleName(roleName),
+				colors: Array.from({ length: NUM_Z }, (_, shadeIndex) => ({
+					name: roleName.toLowerCase() + "-" + String(shadeIndex + 1).padStart(2, "0"),
+					hex: points[shadeIndex * NUM_D + dIndex].color.hex,
+				})),
+			};
+		}),
+	);
+
+	// Same 80 colors as a real object (unlike schemeObjectText, a preformatted
+	// JS-literal STRING with unquoted keys) -- this is what actually gets
+	// JSON.stringify()'d for the JSON download.
+	let paletteObject = $derived.by(() => {
+		const result = {};
+		for (const roleName of ROLE_ORDER) {
+			const dIndex = scheme.roles[roleName];
+			result[roleName.toLowerCase()] = Array.from(
+				{ length: NUM_Z },
+				(_, shadeIndex) => points[shadeIndex * NUM_D + dIndex].color.hex,
+			);
+		}
+		return result;
+	});
+
+	// Same 80 colors as a plain, human-readable listing for the Text download.
+	let paletteTextContent = $derived.by(() => {
+		const lines = [];
+		for (const roleName of ROLE_ORDER) {
+			const dIndex = scheme.roles[roleName];
+			lines.push(displayRoleName(roleName));
+			for (let shadeIndex = 0; shadeIndex < NUM_Z; shadeIndex++) {
+				lines.push("  " + String(shadeIndex + 1).padStart(2, "0") + ": " + points[shadeIndex * NUM_D + dIndex].color.hex);
+			}
+		}
+		return lines.join("\n");
+	});
+
+	function triggerFileDownload(filename, content, mimeType) {
+		const blobUrl = URL.createObjectURL(new Blob([content], { type: mimeType }));
+		const downloadLink = document.createElement("a");
+		downloadLink.href = blobUrl;
+		downloadLink.download = filename;
+		downloadLink.click();
+		URL.revokeObjectURL(blobUrl);
+	}
+
+	function downloadPaletteText() {
+		triggerFileDownload("color-horse-palette.txt", paletteTextContent, "text/plain");
+	}
+	function downloadPaletteCss() {
+		triggerFileDownload("color-horse-palette.css", schemeCssText, "text/css");
+	}
+	function downloadPaletteJson() {
+		triggerFileDownload("color-horse-palette.json", JSON.stringify(paletteObject, null, 2), "application/json");
+	}
+	function downloadPaletteAse() {
+		triggerFileDownload("color-horse-palette.ase", buildAseFile(aseGroups), "application/octet-stream");
+	}
+
 	let cssCopied = $state([])
 	let cssCopyTimeout
 
@@ -777,10 +882,11 @@
 				max="1"
 				step="0.01"
 				bind:value={minChroma}
-				oninput={() => chromaTwoAdjusted = true}
+				onfocus={captureMinChromaBeforeFadeTouch}
 			/>
 		</label>
 	</div>
+	<button onclick={resetFade}>Reset</button>
 {/snippet}
 
 {#snippet lineDemo()}
@@ -829,6 +935,7 @@
 			/>
 		</label>
 	</div>
+	<button onclick={resetLightness}>Reset</button>
 {/snippet}
 
 {#snippet schemePalette()}
@@ -869,7 +976,6 @@
 								roleShadeUsage[roleName]?.[shadeNum] ?? []}
 							<td style:--color={color.hex}>
 								<span>
-									{color.hex}
 								</span>
 							</td>
 						{/each}
@@ -894,6 +1000,7 @@
 			<input type="range" min=0 max=360 bind:value={hueTwo} oninput={() => hueTwoAdjusted = true} />
 		</label>
 	</div>
+	<button onclick={resetHue}>Reset</button>
 {/snippet}
 
 
@@ -921,6 +1028,7 @@
 				oninput={() => chromaTwoAdjusted = true}
 			/>
 		</label>
+		<button onclick={resetSaturation}>Reset</button>
 {/snippet}
 
 
@@ -946,7 +1054,7 @@
 
 {#snippet integrationsSection()}
 	<h2>Integrations</h2>
-	{@render content.integrations(cssCopy, jsCopy)}
+	{@render content.integrations(cssCopy, jsCopy, aseDownload)}
 {/snippet}
 
 {#snippet cssCopy()}
@@ -955,6 +1063,10 @@
 
 {#snippet jsCopy()}
 <pre><button onclick={() => handleCopy(schemeObjectText, jsCopied, jsCopyTimeout)}><Copy />Copy</button>{#if jsCopied.length}<span class="copied"><Check /></span>{/if}{schemeObjectText}</pre>
+{/snippet}
+
+{#snippet aseDownload()}
+<button class="ase-download" onclick={downloadPaletteAse}>Download .ase</button>
 {/snippet}
 
 {#snippet creatorSection()}
@@ -1010,6 +1122,12 @@
 			</div>
 		</div>
 		{@render schemePalette()}
+		<div class="buttons">
+			<button onclick={downloadPaletteText}>Download Text</button>
+			<button onclick={downloadPaletteCss}>Download CSS</button>
+			<button onclick={downloadPaletteJson}>Download JSON</button>
+			<button onclick={downloadPaletteAse}>Download Adobe Swatches</button>
+		</div>
 	</div>
 {/snippet}
 
@@ -1306,8 +1424,12 @@
 		padding-bottom: 1lh;
 	}
 
+	.panel > button {
+		align-self: flex-end;
+	}
+
 	.panel table {
-		margin-top: 3vi;
+		margin-block: 3vi;
 	}
 
 
@@ -1428,6 +1550,10 @@
 		}
 	}
 
+	.ase-download {
+		margin-top: 16px;
+	}
+
 	pre .copied {
 		position: absolute;
 		bottom: 2vi;
@@ -1493,8 +1619,11 @@
 
 	button {
 		font-family: Fredoka;
-		background: var(--button);
-		color: var(--text);
+		background: var(--background-cta-primary);
+		color: var(--text-cta-primary);
+		font-weight: 600;
+		font-size: 1em;
+		padding: 1vi 2vi;
 		border: 1px solid var(--border);
 		border-radius: 5px;
 	}
