@@ -269,11 +269,6 @@ export function computeCylinderD(X, anchors) {
   return { D, nativeD, anchorIndices, u };
 }
 
-/** Clamp a relative-chroma value into its only physically valid domain. */
-function clamp01(v) {
-  return Math.min(1, Math.max(0, v));
-}
-
 /** Clamp a free (non-pinned) relative-chroma value to the user's floor. */
 function clampToFloor(v, floor) {
   return Math.min(1, Math.max(floor, v));
@@ -445,20 +440,20 @@ export function computeCylinderRGrid(ringR, numZLevels, minChroma, anchorIndices
     const column = computeLineBendingDisplacements(numZLevels, pins);
     for (let k = 0; k < numZLevels; k++) {
       if (pinnedZ.has(k)) {
+        // An anchor's own EQUATOR point is the one place its exact chroma
+        // may legitimately sit below minChroma (see computeCylinderR's doc)
+        // -- reproducing the picked color exactly always wins over the
+        // floor, but only at this single pinned position.
         RGrid[k][i] = column[k];
-      } else if (isAnchorColumn) {
-        // This column's own interior pin is the anchor's exact chroma,
-        // which may legitimately sit below minChroma (see computeCylinderR's
-        // doc) -- only the physical [0,1] domain applies here, not the
-        // floor, or an anchor picked below minChroma would get an
-        // artificial flat shelf instead of tapering smoothly to its own
-        // pinned value.
-        RGrid[k][i] = clamp01(column[k]);
       } else {
-        // Every other column's interior pin (ringR[i]) is itself already
-        // >= minChroma (computeCylinderR's own floor), so its free points
-        // should be too -- minChroma is the floor for the whole cylinder,
-        // not just the two pinned ends of this one column.
+        // Every other free point is floored to minChroma, including free
+        // points elsewhere in an anchor's OWN column: being "an anchor
+        // column" only excuses the one pinned equator point above, not the
+        // whole column. Left unfloored, a minimum-bending-energy curve
+        // reacting to that one low pin can undershoot toward zero at other
+        // Z-levels in the same column -- e.g. a faint anchor's hue showing
+        // up as an unintended near-zero dip on a completely different
+        // shade row's ring, nowhere near that anchor's own position.
         RGrid[k][i] = clampToFloor(column[k], minChroma);
       }
     }
