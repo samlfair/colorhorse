@@ -1056,6 +1056,7 @@
 								roleShadeUsage[roleName]?.[shadeNum] ?? []}
 							<td style:--color={color.hex}>
 								<span>
+									{color.hex}
 								</span>
 							</td>
 						{/each}
