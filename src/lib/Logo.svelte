@@ -1,6 +1,8 @@
 <script>
-	export let colorOne = "";
-	export let colorTwo = "";
+	let { colorOne = "", colorTwo = "" } = $props()
+
+	$effect(() => console.log({ colorOne, colorTwo }))
+
 </script>
 
 <svg

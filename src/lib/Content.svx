@@ -4,7 +4,7 @@
 
 {#snippet hero()}
 
-> The *automatic* color scheme generator
+> The *automagic* color scheme generator
 
 {/snippet}
 
@@ -177,7 +177,7 @@ getScheme(colorOne, colorTwo);
 
 Hi! My name is Sam. I'm the author of a static blog generator called [Vowel](https://vowel.cc). I wanted a way for Vowel users to create unique, beautiful color schemes for their websites. That's how I got the idea for Color Horse.
 
-Do you have a cool project? I'm currently looking for my next role. I'm a technical writer and full-stack developer interested in information, publishing, and community. Feel free to shoot me a message on [LinkedIn](https://linkedin.com/in/samlittlefair) or [Bluesky](https://bsky.app/profile/littlefair.ca).
+Do you have a cool project? I'm currently looking for my next role. I'm a technical writer and full-stack developer. Feel free to shoot me a message on [LinkedIn](https://linkedin.com/in/samlittlefair) or [Bluesky](https://bsky.app/profile/littlefair.ca).
 
 {/snippet}
 
@@ -196,13 +196,47 @@ The heading font is [Fraunces](https://undercase.xyz/fonts/fraunces) by Undercas
 	blockquote {
 		font-family: Fraunces;
 		padding: 0;
-		margin: 0;
-		font-size: 2em;
+		margin-block: 3vi;
+		font-size: clamp(2em, 6vi, 3.2em);
+		max-width: 90%;
+		margin-inline: auto;
 		font-weight: 900;
 		font-style: italic;
 		color: var(--pop-text);
 		text-align: center;
 		text-wrap: balance;
+		transform: rotate(-1deg);
+
+		p {
+			--accent: var(--accent-09);
+			display: inline;
+		  background: linear-gradient(
+		  	transparent calc(0.85em - 1ex),
+		  	var(--accent) calc(0.85em - 1ex),
+		  	var(--accent) 1.15em,
+		  	transparent 1.15em
+		  ),
+		  linear-gradient(
+		  	100deg,
+		  	var(--main-background) 4%,
+		  	transparent 4%,
+		  	transparent 96%,
+		  	var(--main-background) 96%
+		  );
+		  background-blend-mode: lighten;
+		  mix-blend-mode: darken;
+		  line-height: 1cap;
+		  border-radius: 3px;
+		  padding-inline: 1.5ch;
+		  box-decoration-break: clone;
+		  -webkit-box-decoration-break: clone;
+
+		  @media (prefers-color-scheme: dark) {
+		  	background-blend-mode: darken;
+		  	mix-blend-mode: lighten;
+		  	--accent: var(--accent-03);
+		  }
+	  }
 
 		em {
 			color: var(--pop-text-em);
@@ -216,5 +250,13 @@ The heading font is [Fraunces](https://undercase.xyz/fonts/fraunces) by Undercas
 		background: var(--color);
 		border-radius: 50%;
 		border: 1px solid black;
+	}
+
+	:global(main.dark) {
+		blockquote p {
+			background-blend-mode: darken;
+			mix-blend-mode: lighten;
+			--accent: var(--accent-03);
+		}
 	}
 </style>

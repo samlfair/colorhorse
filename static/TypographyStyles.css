@@ -18,62 +18,28 @@
 			sans-serif;
 	}
 
+
+
 	@font-face {
-		font-family: "Pliant";
+		font-family: "Work Sans";
 		src:
-			url("/fonts/pliant.ttf") format("truetype-variations"),
-			url("/fonts/pliant.tty") format("truetype") tech("variations");
+			url("/fonts/work-sans.ttf") format("truetype-variations"),
+			url("/fonts/work-sans.ttf") format("truetype") tech("variations");
 		font-weight: 100 900;
-		font-stretch: 100% 125%;
 		font-style: normal;
 		font-display: swap;
 	}
 
-
 	@font-face {
-		font-family: "Pliant";
+		font-family: "Work Sans";
 		src:
-			url("/fonts/pliant-italic.ttf") format("truetype-variations"),
-			url("/fonts/pliant-italic.ttf") format("truetype") tech("variations");
+			url("/fonts/work-sans-italic.ttf") format("truetype-variations"),
+			url("/fonts/work-sans-italic.ttf") format("truetype") tech("variations");
 		font-weight: 100 900;
-		font-stretch: 100% 125%;
 		font-style: italic;
 		font-display: swap;
 	}
 
-
-	@font-face {
-		font-family: "Fredoka";
-		src:
-			url("/fonts/fredoka.ttf") format("truetype-variations"),
-			url("/fonts/fredoka.ttf") format("truetype") tech("variations");
-		font-weight: 300 700;
-		font-stretch: 75% 125%;
-		font-style: normal;
-		font-display: swap;
-	}
-
-	@font-face {
-		font-family: "Cabin";
-		src:
-			url("/fonts/cabin.ttf") format("truetype-variations"),
-			url("/fonts/cabin.ttf") format("truetype") tech("variations");
-		font-weight: 300 700;
-		font-stretch: 75% 125%;
-		font-style: normal;
-		font-display: swap;
-	}
-
-	@font-face {
-		font-family: "Cabin";
-		src:
-			url("/fonts/cabin-italic.ttf") format("truetype-variations"),
-			url("/fonts/cabin-italic.ttf") format("truetype") tech("variations");
-		font-weight: 400 700;
-		font-stretch: 75% 100%;
-		font-style: italic;
-		font-display: swap;
-	}
 
 	@font-face {
 		font-family: 'Fraunces';
@@ -92,52 +58,13 @@
 		src: url('/fonts/fraunces-italic.woff2') format('woff2');
 	}
 
-	@font-face {
-		font-family: 'Soulcraft';
-		font-display: swap;
-		font-weight: 100 900;
-		font-style: normal;
-		src: url('/fonts/soulcraft.ttf') format('ttf');
-		font-stretch: 0 100;
-	}
 
-
-	.soulcraft {
-		font-variation-settings: "wdth" 0, "slnt" 0;
-	}
-
-	.cabin {
-		font-family: "Cabin", sans-serif;
+	.work-sans {
+		font-family: "Work Sans", sans-serif;
 		font-optical-sizing: auto;
 		font-weight: 400;
-		/* 400- 700 */
 		font-style: normal;
-		font-variation-settings:
-			"wdth" 100;
 	}
-
-	.fredoka {
-		font-family: "Fredoka", sans-serif;
-		font-optical-sizing: auto;
-		font-weight: 300;
-		/* 300 - 700 */
-		font-style: normal;
-		font-variation-settings:
-			"wdth" 100;
-	}
-
-
-
-	.pliant {
-		font-family: "Pliant", sans-serif;
-		font-optical-sizing: auto;
-		font-weight: 100;
-		/* 100 - 900 */
-		font-style: normal;
-		font-variation-settings:
-			"wdth" 100;
-	}
-
 
 	h1,
 	h2,

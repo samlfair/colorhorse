@@ -2,6 +2,8 @@
 
 Generate a full, smoothly-related OKLCH color scheme from two anchor colors.
 
+> Try it out: [color.horse](https://color.horse)
+
 Give it two hex colors and it places 10 more hues around a color wheel between
 them (minimum-bending-energy relaxed, so the spacing bends smoothly instead of
 jumping), tapers each of the 12 hues into a lightness/chroma ramp, and
@@ -32,7 +34,14 @@ getScheme("#3366cc", "#cc6633");
 ```
 
 `getScheme()` works with no arguments too -- it falls back to a built-in
-default color pair.
+default color pair. Give it just `colorOne` and it fills in `colorTwo` for
+you, 45 degrees around the hue wheel from your color -- a fixed, harmonious
+adjacency, not a random or unrelated pick:
+
+```js
+getScheme("#3366cc");
+// same as getScheme("#3366cc", "<#3366cc's hue + 45deg, same L/C>")
+```
 
 ## API
 
@@ -40,7 +49,9 @@ default color pair.
   (80 colors total by default).
   - `colorOne`, `colorTwo`: `"#rrggbb"` hex strings. Both must have nonzero
     chroma (not pure gray/black/white) -- the whole scheme is built by
-    smoothly relaxing 12 hues between two real hues.
+    smoothly relaxing 12 hues between two real hues. `colorTwo` is optional:
+    omit it (with `colorOne` given) for the one-color fallback above; omit
+    both for the built-in default pair.
   - `options`: `{ minLightness = 0.1, maxLightness = 0.98, minChroma = 0.2, shadeCount = 10 }`.
     Hue count is fixed at 12 -- the palette's internal harmony classification
     (square, analagous, tertiary, ...) is only meaningful for a 12-slot wheel.

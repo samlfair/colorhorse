@@ -6,6 +6,7 @@
  * on top of them.
  */
 import { getScheme } from './index.js';
+import { hexToOklch, oklchToSrgb } from './oklch.js';
 
 import { describe, it, expect } from 'vitest';
 
@@ -81,6 +82,42 @@ describe('colorhorse public API', () => {
 				threw = error instanceof Error;
 			}
 			assert(threw, 'getScheme throws on a zero-chroma (grayscale) colorOne');
+		}
+
+		// ---------------------------------------------------------------------------
+		// one-color fallback: colorTwo omitted, colorOne given.
+		// ---------------------------------------------------------------------------
+		{
+			const colorOne = '#3366cc';
+			const scheme = getScheme(colorOne);
+			const roleNames = Object.keys(scheme).sort();
+			assert(
+				roleNames.join(',') === ['accent', 'danger', 'info', 'primary', 'secondary', 'success', 'tertiary', 'warning'].join(','),
+				'one-color fallback still returns the 8 public role names'
+			);
+			const allHexes = Object.values(scheme).flat().map((hex) => hex.toLowerCase());
+			assert(allHexes.includes(colorOne), 'colorOne still reappears exactly among the scheme hexes');
+
+			// colorTwo is synthesized 45deg around the wheel from colorOne, same
+			// lightness/chroma -- getScheme(colorOne) should exactly match calling
+			// getScheme with that synthesized colorTwo spelled out explicitly.
+			const { L, C, H } = hexToOklch(colorOne);
+			const adjacentHue = ((H + 45) % 360 + 360) % 360;
+			const colorTwo = oklchToSrgb(L, C, adjacentHue).hex;
+			const explicitScheme = getScheme(colorOne, colorTwo);
+			assert(
+				JSON.stringify(scheme) === JSON.stringify(explicitScheme),
+				'getScheme(colorOne) matches getScheme(colorOne, colorOne-hue+45deg)'
+			);
+
+			// omitting BOTH colors is unchanged: still DEFAULTS' own built-in pair,
+			// not the one-color fallback (which only applies when colorOne IS given).
+			const noArgScheme = getScheme();
+			const explicitDefaultScheme = getScheme('#4da3ff', '#ff6b4d');
+			assert(
+				JSON.stringify(noArgScheme) === JSON.stringify(explicitDefaultScheme),
+				'getScheme() with no args is unaffected by the one-color fallback'
+			);
 		}
 
 		expect(failed, failed + ' assertion(s) failed -- see console output above for FAIL: details').toBe(0);

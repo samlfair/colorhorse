@@ -44,7 +44,7 @@
 	import Download from "$lib/Download.svelte"
 	import Man from "$lib/Man.svelte"
 	import HorseJumping from "$lib/HorseJumping.svelte"
-	import * as content from "./../lib/Content.svx"
+	import * as content from "$lib/Content.svx"
 
 	const NUM_D = 12;
 	const NUM_Z = 10;
@@ -137,19 +137,6 @@
 	}
 
 	/* ------------------------- state ------------------------- */
-	// A native <input type="color">'s own popup (Chrome/Edge's hex text field
-	// in particular) fires `input` events on every keystroke while it's being
-	// typed into, including incomplete/malformed intermediate values (e.g.
-	// "#3", "#33bb") -- NOT just on a completed, valid color. a1Color/a2Color
-	// feed hexToOklch() (oklch.js), which happily parseInt()s a short hex
-	// into NaN components with no validation of its own; NaN then poisons
-	// every derived value downstream (hueOne, anchors, cyl, points, ...) and
-	// computeCylinderPoints ends up throwing (a NaN target angle can never be
-	// "closest" to any slot), breaking the reactive graph until a full valid
-	// color is entered. HEX_COLOR_PATTERN guards the two color inputs below
-	// so a1Color/a2Color only ever get a complete, valid hex -- an in-progress
-	// keystroke is simply ignored rather than committed to state.
-	const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 	let a1Color = $state("#cccccc"); // neutral placeholder until onMount seeds a real random pair
 	let a2Color = $state("#dddddd");
 	let minL = $state(0.1);
@@ -344,15 +331,12 @@
 		--ring: light-dark(var(--accent-05), var(--primary-05));
 		--menu: light-dark(var(--tertiary-09), var(--tertiary-03));
 		--title: light-dark(var(--primary-05), var(--primary-06));
-		--pop-text: light-dark(var(--secondary-05), var(--secondary-08));
-		--pop-text-em: light-dark(var(--secondary-07), var(--tertiary-07));
-		--background-button: light-dark(var(--accent-05), var(--primary-05));
-		--border-button: light-dark(var(--accent-04), var(--primary-04));
-		--icon-button: light-dark(var(--accent-08), var(--primary-08));
-		--text-button: light-dark(var(--accent-10), var(--primary-10));
+		--pop-text: light-dark(var(--secondary-06), var(--secondary-05));
+		--pop-text-em: light-dark(var(--secondary-04), var(--secondary-07));
+		--button: light-dark(var(--primary-04), var(--primary-07));
 
 		--background-cta-primary: light-dark(var(--primary-05), var(--primary-05));
-		--border-cta-primary: light-dark(var(--primary-04), var(--primary-04));
+		--border-cta-primary: light-dark(var(--primary-04), var(--primary-05));
 		--icon-cta-primary: light-dark(var(--primary-08), var(--primary-08));
 		--text-cta-primary: light-dark(var(--primary-10), var(--primary-10));
 
@@ -377,12 +361,9 @@
 		--ring: var(--accent-05);
 		--menu: var(--tertiary-09);
 		--title: var(--primary-05);
-		--pop-text: var(--secondary-05);
-		--pop-text-em: var(--secondary-07);
-		--background-button: var(--accent-05);
-		--border-button: var(--accent-04);
-		--icon-button: var(--accent-08);
-		--text-button: var(--accent-10);
+		--pop-text: var(--secondary-06);
+		--pop-text-em: var(--secondary-04);
+		--button: var(--primary-04);
 
 		
 		--primary-link-color: var(--primary-05);
@@ -467,12 +448,9 @@
 
 		--menu: var(--tertiary-03);
 		--title: var(--primary-06);
-		--pop-text: var(--secondary-05);
-		--pop-text-em: var(--secondary-07);
-		--background-button: var(--accent-05);
-		--border-button: var(--accent-04);
-		--icon-button: var(--accent-08);
-		--text-button: var(--accent-10);
+		--pop-text: var(--secondary-07);
+		--pop-text-em: var(--secondary-05);
+		--button: var(--secondary-07);
 
 		--background-cta-primary: var(--primary-05);
 		--border-cta-primary: var(--primary-05);
@@ -829,6 +807,7 @@
 	let jsCopyTimeout
 
 	async function handleCopy(text, toggle, timeout) {
+		console.log({toggle})
 		try {
 			await navigator.clipboard.writeText(text)
 			toggle.push(1)
@@ -846,7 +825,7 @@
 <svelte:head>
 	<title>Color Horse</title>
 	<meta property="og:description" content="The automatic color scheme generator" />
-	<meta property="og:image" content="/scheme-01.png" />
+	<meta property="og:image" content="/palette.png" />
 	<meta property="og:title" content="Color Horse" />
 	<link rel="icon" href="/favicon.ico" type="image/x-icon" />
 	{@html headerStyles}
@@ -854,1054 +833,72 @@
 
 
 <header class:colorized>
-	<div>
 	<h1 href="/" id="title">Color Horse</h1>
-	<Logo colorOne={colorized ? a2Color : "transparent"} colorTwo={colorized ? a1Color : "transparent"} />
-	</div>
+	<p>The <em>automatic</em> color scheme generator</p>
+	<Logo colorOne={colorized ? a2Color : "#000"} colorTwo={colorized ? a1Color : "#000"} />
 </header>
 
-<main class={toggleDarkMode ? "dark" : "light"}>
-
-	<section>
-		{@render content.hero()}
-			<div class="buttons">
-				<button class="cta" id="darkmode" onclick={() => {
-					toggleDarkMode = !toggleDarkMode
-				}}>
-					<Contrast />
-					Toggle Dark Mode
-				</button>
-				<button class="cta" id="shuffle" onclick={() => {
-					a1Color = randomAnchorHex()
-					a2Color = randomAnchorHex()
-				}}>
-					<Shuffle />
-					Shuffle Colors
-				</button>
-			</div>
-		{@render content.intro()}
-	</section>
-
-
-	{@render controls()}
-
-	<section>
-	 {@render content.how()}
-	</section>
-
-	<div class="panel">
-		{@render circleDemo()}
-	</div>
-
-	<section>
-		{@render content.shades()}
-	</section>
-
-	<div class="panel">
-		{@render lineDemo()}
-	</div>
-
-	<section>
-		{@render content.chroma()}
-	</section>
-
-	<div class="panel">
-		{@render radarDemo()}
-	</div>
-
-
-	<section>
-		{@render content.desaturation()}
-	</section>
-
-	<div class="panel">
-		{@render curveDemo()}
-	</div>
-
-	<section>
-		{@render content.sphere()}
-	</section>
-
-	{@render colorSphere()}
-
-	{@render content.oklch()}
-
-	<section>
-		{@render content.selection()}
-	</section>
-
-
-	<section>
-		{@render showcaseSection()}
-	</section>
-
-	<section>
-		{@render integrationsSection()}
-	</section>
-
-	<section>
-		{@render creatorSection()}
-	</section>
-
-	<section class="credits">
-		{@render creditsSection()}
-		<HorseJumping colorOne={a1Color} colorTwo={a2Color} />
-	</section>
-	<footer>
-		<p>© Sam Littlefair, 2026</p>
-	</footer>
-</main>
-
-	<div class="scheme">
-			<div class="swatch" style="--color: var(--danger-background)">
-				<div class="swatch" style="--color: var(--danger-border)"></div>
-			</div>
-			<div class="swatch" style="--color: var(--warning-background)">
-				<div class="swatch" style="--color: var(--warning-border)"></div>
-			</div>
-			<div class="swatch" style="--color: var(--info-background)">
-				<div class="swatch" style="--color: var(--info-border)"></div>
-			</div>
-			<div class="swatch" style="--color: var(--success-background)">
-				<div class="swatch" style="--color: var(--success-border)"></div>
-			</div>
-			<div class="swatch" style="--color: var(--accent-soft)">
-				<div class="swatch" style="--color: var(--code-background)"></div>
-			</div>
-			<div class="swatch" style="--color: var(--menu)">
-				<div class="swatch" style="--color: var(--icon-cta-primary)"></div>
-			</div>
-			<div class="swatch" style="--color: var(--panel)">
-				<div class="swatch" style="--color: var(--pop-text-em)"></div>
-			</div>
-			<div class="swatch" style="--color: var(--main-background); border: 1px solid var(--border);">
-				<div class="swatch" style="--color: var(--background-cta-primary)"></div>
-			</div>
-	</div>
-
-{#snippet curveDemo()}
-	<h2>Fade</h2>
-		{@render content.fade()}
-	<CurveDemo points={curveDemoChromaValuesPrimary} primaryColor={a1Color} anchorIndex={-1} />
-	<CurveDemo points={curveDemoChromaValuesSecondary} primaryColor={a2Color} anchorIndex={-1} />
-	<div class="controls">
-		<label>Minimum Saturation
-			<input
-				type="range"
-				min="0"
-				max={minChromaSliderMax}
-				step="0.01"
-				bind:value={minChroma}
-				onfocus={captureMinChromaBeforeFadeTouch}
-			/>
-		</label>
-	</div>
-	<button onclick={resetFade}>Reset</button>
-{/snippet}
-
-{#snippet lineDemo()}
-	<h2>Lightness</h2>
-		{@render content.lightness()}
-	<LineDemo points={lineDemoLightnessValues} minLightness={minL} maxLightness={maxL} anchorOneIndex={anchorOneLightnessIndex} anchorTwoIndex={anchorTwoLightnessIndex} />
-	<div class="controls">
-		<label>Primary Color Lightness
-			<input
-				type="range"
-				min={darkestShadeCeiling}
-				max={lightestShadeFloor}
-				step="0.001"
-				bind:value={lightnessOne}
-				oninput={() => lightnessOneAdjusted = true}
-			/>
-		</label>
-		<label>Secondary Color Lightness
-			<input
-				type="range"
-				min={darkestShadeCeiling}
-				max={lightestShadeFloor}
-				step="0.001"
-				bind:value={lightnessTwo}
-				oninput={() => lightnessTwoAdjusted = true}
-			/>
-		</label>
-		<label>Darkest Color
-			<input
-				type="range"
-				min="0"
-				max={darkestShadeCeiling}
-				step="0.001"
-				bind:value={minL}
-			/>
-		</label>
-		<label>Lightest Color
-			<input
-				type="range"
-				min={lightestShadeFloor}
-				max="1"
-				step="0.001"
-				bind:value={maxL}
-			/>
-		</label>
-	</div>
-	<button onclick={resetLightness}>Reset</button>
-{/snippet}
-
-{#snippet schemePalette()}
-	 <div class="scroll">
-		<table>
-		<!--
-			<thead>
-				<tr>
-					<th></th>
-					<th>Text</th>
-					<th>Link</th>
-					<th>Placeholder</th>
-					<th>Muted</th>
-					<th>Button hover</th>
-					<th>Button</th>
-					<th>Guide, border hover</th>
-					<th>Grid, border, panel hover</th>
-					<th>Panel</th>
-					<th>Background</th>
-				</tr>
-			</thead>
-			-->
-			<tbody>
-				{#each ROLE_ORDER as roleName (roleName)}
-					{@const dIndex = scheme.roles[roleName]}
-					{@const exactZIndex =
-						roleName === "Primary"
-							? cyl.anchorZIndices[0]
-							: roleName === "Secondary"
-								? cyl.anchorZIndices[1]
-								: -1}
-					<tr>
-						<th class="role-name">{displayRoleName(roleName)}</th>
-						{#each { length: NUM_Z } as _, k (k)}
-							{@const shadeNum = k + 1}
-							{@const color = points[k * NUM_D + dIndex].color}
-							{@const usageLabels =
-								roleShadeUsage[roleName]?.[shadeNum] ?? []}
-							<td style:--color={color.hex}>
-								<span>
-								</span>
-							</td>
-						{/each}
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
-{/snippet}
-
-{#snippet circleDemo()}
-	<h2>Hue</h2>
-	{@render content.hue()}
-	<CircleDemo points={cyl.D} chroma={anchors[0].C} lightness={anchors[0].L} anchorOneIndex={anchorOneHueIndex} anchorTwoIndex={anchorTwoHueIndex} />
-	<div class="circle controls">
-		<label>Primary Color Hue
-			<input type="range" min=0 max=360 bind:value={hueOne} oninput={() => hueOneAdjusted = true} />
-		</label>
-		<label>Secondary Color Hue
-			<input type="range" min=0 max=360 bind:value={hueTwo} oninput={() => hueTwoAdjusted = true} />
-		</label>
-	</div>
-	<button onclick={resetHue}>Reset</button>
-{/snippet}
-
-
-{#snippet radarDemo()}
-	<h2>Saturation</h2>
-	{@render content.saturation()}
-	<RadarDemo hueDegrees={cyl.D} rings={radarRings} />
-		<label>Primary color saturation
-			<input
-				type="range"
-				min="0"
-				max="1"
-				step="0.001"
-				bind:value={chromaOne}
-				oninput={() => chromaOneAdjusted = true}
-			/>
-		</label>
-		<label>Secondary color saturation
-			<input
-				type="range"
-				min="0"
-				max="1"
-				step="0.001"
-				bind:value={chromaTwo}
-				oninput={() => chromaTwoAdjusted = true}
-			/>
-		</label>
-		<button onclick={resetSaturation}>Reset</button>
-{/snippet}
-
-
-{#snippet showcaseSection()}
-	<h2>Showcase</h2>
-	{@render content.showcase()}
-	<div class="swatch-grid">
-		{#each BRAND_SWATCHES as brandSwatch (brandSwatch.name)}
-			<button
-				type="button"
-				class="swatch"
-				style:--swatch-color-one={brandSwatch.colorOne}
-				style:--swatch-color-two={brandSwatch.colorTwo}
-				onclick={() => {
-					a1Color = brandSwatch.colorOne;
-					a2Color = brandSwatch.colorTwo;
-				}}
-			>
-			</button>
-		{/each}
-	</div>
-{/snippet}
-
-{#snippet integrationsSection()}
-	<h2>Integrations</h2>
-	{@render content.integrations(cssCopy, jsCopy, aseDownload)}
-{/snippet}
-
-{#snippet cssCopy()}
-<pre><button onclick={() => handleCopy(schemeCssText, cssCopied, cssCopyTimeout)}><Copy />Copy</button>{#if cssCopied.length}<span class="copied"><Check /></span>{/if}{schemeCssText}</pre>
-{/snippet}
-
-{#snippet jsCopy()}
-<pre><button onclick={() => handleCopy(schemeObjectText, jsCopied, jsCopyTimeout)}><Copy />Copy</button>{#if jsCopied.length}<span class="copied"><Check /></span>{/if}{schemeObjectText}</pre>
-{/snippet}
-
-{#snippet aseDownload()}
-<button class="cta" onclick={downloadPaletteAse}><Download />Download .ase</button>
-{/snippet}
-
-{#snippet creatorSection()}
-	<h2>Creator</h2>
-	<div class="creator">
-	<Man color={paletteVars["--accent-07"]} />
-	<div>
-		{@render content.creator()}
-	</div>
-	</div>
-{/snippet}
-
-{#snippet creditsSection()}
-	<h2>Credits</h2>
-	{@render content.credits()}
-{/snippet}
-
-{#snippet controls()}
-	<div class="panel">
-		{@render content.palette()}
-		<div class="controls">
-			<div class="colors">
-				<label>Primary Color
-					<input
-						type="color"
-						value={a1Color}
-						oninput={(e) => {
-							if (HEX_COLOR_PATTERN.test(e.currentTarget.value)) a1Color = e.currentTarget.value;
-						}}
-					/>
-				</label>
-				<label>Secondary Color
-					<input
-						type="color"
-						value={a2Color}
-						oninput={(e) => {
-							if (HEX_COLOR_PATTERN.test(e.currentTarget.value)) a2Color = e.currentTarget.value;
-						}}
-					/>
-				</label>
-			</div>
-			<div class="sliders">
-				<label>Darkest Shade
-					<input
-						type="range"
-						min="0"
-						max={darkestShadeCeiling}
-						step="0.01"
-						bind:value={minL}
-					/>
-				</label>
-				<label>Lightest Shade
-					<input
-						type="range"
-						min={lightestShadeFloor}
-						max="1"
-						step="0.01"
-						bind:value={maxL}
-					/>
-				</label>
-				<label>Minimum Saturation
-					<input
-						type="range"
-						min="0"
-						max={minChromaSliderMax}
-						step="0.01"
-						bind:value={minChroma}
-					/>
-				</label>
-			</div>
-		</div>
-		{@render schemePalette()}
-		<div class="buttons">
-			<button onclick={downloadPaletteText}><Download />Text</button>
-			<button onclick={downloadPaletteCss}><Download />CSS</button>
-			<button onclick={downloadPaletteJson}><Download />JSON</button>
-			<button onclick={downloadPaletteAse}><Download />Adobe Swatches</button>
-		</div>
-	</div>
-{/snippet}
-
-{#snippet viewControls()}
-	<div class="controls">
-		<label>
-			Rotate
-			<input
-				type="range"
-				min="0"
-				max="360"
-				step="1"
-				bind:value={azimuth}
-			/>
-		</label>
-		<label>Tilt
-			<input
-				type="range"
-				id="elevation"
-				min="-80"
-				max="80"
-				step="1"
-				bind:value={elevation}
-			/>
-		</label>
-	</div>
-{/snippet}
-
-{#snippet colorSphere()}
-	<div class="viz panel">
-		<h2>Colorspace</h2>
-		{@render content.combination()}
-		<svg viewBox="0 0 900 620" width="900" height="620">
-			{#each axesLines as a (a.label)}
-				<line
-					x1={a.negEnd.sx}
-					y1={a.negEnd.sy}
-					x2={a.origin.sx}
-					y2={a.origin.sy}
-					stroke={a.color}
-					stroke-width="1"
-					opacity="0.35"
-				/>
-				<line
-					x1={a.origin.sx}
-					y1={a.origin.sy}
-					x2={a.posEnd.sx}
-					y2={a.posEnd.sy}
-					stroke={a.color}
-					stroke-width="1.5"
-					opacity="0.85"
-				/>
-				<text
-					x={a.posEnd.sx}
-					y={a.posEnd.sy - 6}
-					fill={a.color}
-					font-size="13"
-					font-weight="700"
-					text-anchor="middle">{a.label}</text
-				>
-			{/each}
-			{#each withScreen as { p, s } (p.zIndex + "-" + p.dIndex)}
-				<circle
-					cx={s.sx}
-					cy={s.sy}
-					r={p.isAnchor ? 9 * s.scale : 3.5 * s.scale}
-					fill={p.color.hex}
-					stroke={p.isAnchor ? "var(--emphasis)" : p.color.hex}
-					stroke-width={p.isAnchor ? 2 : 1}
-				/>
-				{#if p.isAnchor}
-					<text
-						x={s.sx}
-						y={s.sy - 14 * s.scale}
-						fill={p.anchorPos === 0 ? "var(--anchor1)" : "var(--anchor2)"}
-						font-size={11 * Math.max(s.scale, 0.7)}
-						font-weight="700"
-						text-anchor="middle"
-					>
-						{p.anchorPos === 0 ? "Anchor 1" : "Anchor 2"}
-					</text>
-				{/if}
-			{/each}
-		</svg>
-		{@render viewControls()}
-	</div>
-{/snippet}
 
 <style>
-	/**
-	 * This page's theme tokens are DERIVED, in CSS, from the 80 palette
-	 * custom properties set via the `style` attribute on .cylinder-page (see
-	 * the component script) -- JS's only job is computing those 80 raw
-	 * values and flipping `data-theme`; which shade means "background",
-	 * which means "text", light vs dark is a plain CSS formula here, not
-	 * imperative JS. Scoped to .cylinder-page (not :root) so it can't leak
-	 * into other routes when navigating away client-side -- see the script
-	 * block's top comment for why that matters in a SvelteKit SPA.
-	 */
-
 	:global(body) {
 		color: var(--text);
-		font-size: clamp(16px, 2vi, 18px);
-	}
-
-	a {
-		color: var(--link);
+		font-family: Fraunces;
 	}
 
 	header {
 		background: var(--menu);
-		width: 100%;
-		padding-block: 1em;
-		margin-bottom: 1lh;
-	}
-
-	header :global(svg) {
-		transform: scaleX(-1);
-		width: auto;
-		height: 1em;
-		display: inline;
+		width: 1200px;
+		min-height: 800px;
+		max-height: 800px;
+		height: 800px;
+		align-items: flex-end;
+		font-size: min(10vi, 5em);
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-content: center;
+		text-box-edge: ex alphabetic;
+		text-box-trim: trim-both;
+		padding-inline: 10%;
+		border-left: 40px solid var(--tertiary-08);
+		box-sizing: border-box;
 	}
 
 	header h1 {
 		text-box-trim: trim-both;
-		text-box-edge: cap alphabetic;
+		text-box-edge: ex alphabetic;
 		margin: 0;
-		padding-top: 0.2em;
+		width: 100%;
 		font-family: Fraunces;
 		font-style: normal;
-		font-size: 1em;
+		font-size: 0.8em;
 		font-weight: 800;
 		font-variation-settings: "SOFT" 100;
 		color: var(--title);
 	}
 
-	header > div {
-		align-items: baseline;
-		padding-block: 2vi;
-		font-size: min(10vi, 5em);
-		gap: 0.3em;
-		margin: auto;
-		display: flex;
-		flex-direction: row;
-		justify-content: space-between;
-		opacity: 0;
-		transition: opacity 0.4s;
-		max-width: min(var(--width), 100vi - 10vw);
-		width: 100%;
-		flex: 1;
-	}
-
-	header.colorized > div {
-		opacity: 1;
-	}
-
-	main {
-		align-items: flex-start;
-		display: flex;
-		flex-direction: column;
-		gap: var(--large-gap);
-		margin-inline: auto;
-		max-width: min(var(--width), 100vi - 10vw);
-		overflow-x: hidden;
-		font-family: "Work Sans";
-		padding-bottom: 4lh;
-	}
-
-	section:first-of-type {
-		gap: 2lh;
-	}
-
-
-	div.creator {
-		display: flex;
-		flex-direction: row;
-		flex-wrap: wrap;
-		justify-content: space-around;
-		align-items: flex-start;
-		gap: max(2vi, 2ch);
-	}
-
-	div.creator > * {
-		flex: 1;
-	}
-
-	div.creator :global(svg) {
-		min-height: 10vi;
-		min-width: 100px;
-		height: auto;
-		width: auto;
-	}
-
-	div.creator > div {
-		min-width: 300px;
-		display: flex;
-		flex-direction: column;
-		gap: 1lh;
-	}
-
-
-	section {
-		display: flex;
-		flex-direction: column;
-		margin: auto;
-		gap: 1lh;
-		width: 100%;
-		max-width: 70ch;
-	}
-
-	section > :global(h2) {
-		width: 100%;
-		font-size: 1.7em;
-		font-family: Fraunces;
-		color: var(--heading);
-		font-weight: 600;
-		text-transform: uppercase;
-	}
-
-	.panel > :global(h2) {
-		font-size: 1.8em;
-		font-family: Fraunces;
-		font-weight: 600;
+	p {
+		font-weight: 700;
 		font-style: italic;
-		color: var(--panel-heading);
-		margin-block: 0;
+		color: var(--pop-text);
+		flex: 4;
+		text-box-trim: trim-both;
+		text-box-edge: ex alphabetic;
+
+		em {
+			color: var(--pop-text-em);
+		}
 	}
 
-	section.credits :global(svg) {
-		width: 30%;
-		height: auto;
-		align-self: center;
-		margin-block: 6vi;
+	header :global(svg) {
 		transform: scaleX(-1);
-	}
-
-	footer {
-		font-size: 0.8em;
-		color: var(--muted);
-		text-align: center;
-		width: 100%;
-	}
-
-	.controls > label {
-		max-width: max(300px, 45%);
-		width: 100%;
-	}
-
-	:global(aside h2:has(~h2)) {
-		display: none;
-	}
-
-	:global(aside h2) {
-		font-size: 1.6em;
-		font-family: Fraunces;
-		font-style: italic;
-	}
-
-	:global(h2:before) {
-		display: none;
-	}
-
-	aside {
-		display: flex;
-		flex-direction: column;
-		gap: 1lh;
-	}
-
-	aside table {
-		grid-template-columns: 20% 20%;
-		align-self: center;
-		width: 100%;
-		justify-content: space-evenly;
-		td {
-			border-radius: 50%;
-		}
-	}
-
-	label {
-		font-size: 0.9em;
-		font-weight: 500;
-	}
-
-
-	table {
-		table-layout: fixed;
-		display: grid;
-		gap: 10px;
-		grid-template-columns: min-content repeat(10, 1fr);
-		width: 100%;
-		border-collapse: separate;
-		border-spacing: 10px 10px;
-		font-size: 0.6em;
-		text-transform: uppercase;
-	}
-
-	tbody,
-	tr {
-		display: contents;
-	}
-
-	th, td {
-		display: flex;
-		align-items: center;
-		justify-content: flex-start;
-	}
-
-	td {
-		aspect-ratio: 1 / 1;
-		background: var(--color);
-		font-size: 0.5em;
-		color: rgba(0,0,0,0);
-		border-radius: 10px;
-		border: 1.5px solid var(--border);
-		padding: 0;
-	}
-
-	td span {
 		display: block;
-		width: 100%;
-		aspect-ratio: 1 / 1;
-	}
-
-	.viz {
-		align-self: stretch;
-	}
-
-	.panel {
-		width: 100%;
-		background: var(--panel);
-		border: 1px solid var(--border);
-		border-radius: 12px;
-		padding: 4vi 5vi;
-		overflow: auto;
-		display: flex;
-		gap: 1lh;
-		flex-direction: column;
-	}
-
-	.panel > :global(svg) {
-		padding-bottom: 1lh;
-	}
-
-	.panel > button {
-		align-self: flex-end;
-	}
-
-	.panel table {
-		margin-block: 3vi;
-	}
-
-
-	.controls {
-		width: 100%;
-		display: flex;
-		flex-direction: row;
-		flex-wrap: wrap;
-		gap: 0.5em;
-		align-items: stretch;
-		justify-content: space-between;
-	}
-
-	.sliders {
-		width: 100%;
-	}
-	.sliders label {
 		flex: 1;
-	}
-
-	.controls .sliders, .controls .colors {
-		max-width: max(45%, 300px);
-		width: 100%;
-	}
-
-	:global(.line-demo) {
-		align-self: center;
-	}
-
-	.controls .sliders {
-		display: flex;
-		flex-direction: column;
-	}
-
-	input[type="range"] {
-		box-sizing: border-box;
-		width: 100%;
-		accent-color: var(--ring);
-	}
-
-	input[type="color"] {
-		width: 100%;
-		height: 40px;
-		border: 1px solid var(--border);
-		border-radius: 6px;
-		cursor: pointer;
-	}
-
-	.swatch-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-		gap: 12px;
-		width: 100%;
-	}
-
-	.swatch {
-		background: linear-gradient(90deg, var(--swatch-color-one) 50%, var(--swatch-color-two) 50%);
-		border: 1px solid black;
-		border-radius: 8px;
-		height: 64px;
-		color: #fff;
-		font-family: "Work Sans";
-		font-weight: 600;
-		text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-		transition: transform 0.15s ease;
-	}
-
-	.swatch:hover {
-	}
-
-	.placeholder {
-		border: 1px dashed var(--border);
-		border-radius: 8px;
-		padding: 2ch;
-	}
-
-	.shade-chip.exact {
-		border: 2px solid var(--emphasis);
-	}
-	.shade-chip.used {
-		border: 2px solid var(--ring);
-	}
-
-	:global(pre) {
-		margin-top: 16px;
-		background: var(--code-background);
-		max-height: 10lh;
-		border-radius: 8px;
-		padding: 14px 16px;
-		max-width: 100%;
-		overflow: auto;
-		position: relative;
-	}
-
-	pre button {
-		position: absolute;
-		top: 2vi;
-		right: 2vi;
-		display: flex;
-		justify-content: flex-start;
-		align-items: center;
-		gap: 1vi;
-		font-weight: 500;
-		font-size: 1em;
-		color: var(--text-cta-secondary);
-		background: var(--background-cta-secondary);
-
-
-		:global(svg) {
-			display: inline-block;
-			height: 1em;
-		}
-
-
-		:global(path) {
-			fill: var(--text-cta-secondary);
-		}
-	}
-
-	.ase-download {
-		margin-top: 16px;
-	}
-
-	pre .copied {
-		position: absolute;
-		bottom: 2vi;
-		right: 2vi;
-		height: 1.5em;
-		background: var(--background-success);
-		display: inline-block;
-		aspect-ratio: 1/1;
-		border-radius: 50%;
-		padding: 0.5em;
-		box-sizing: content-box;
-		font-size: 1em;
-
-		:global(path) {
-			fill: var(--icon-success);
-		}
-	}
-
-	.scroll {
-		overflow: auto;
-	}
-
-	svg {
-		display: block;
-		max-width: 100%;
 		height: auto;
 	}
 
-	button {
-		background: var(--main-background);
-		color: var(--text);
-		border: 1px solid var(--border);
-		padding: 0.5em;
-		cursor: pointer;
-	}
-
-	.theme-switcher {
-		display: flex;
-	}
-
-	.theme-switcher button {
-		flex: 1 1 0;
-		margin-top: 0;
-		text-align: center;
-
-		&:first-child {
-			border-top-left-radius: 5px;
-			border-bottom-left-radius: 5px;
-			border-right: none;
-		}
-
-		&:last-child {
-			border-top-right-radius: 5px;
-			border-bottom-right-radius: 5px;
-			border-left: none;
-		}
-	}
-
-	button:hover {
-		border-color: var(--ring);
-	}
 
 
-	button {
-		font-family: "Work Sans";
-		background: var(--background-cta-primary);
-		color: var(--text-cta-primary);
-		font-weight: 600;
-		font-size: 1em;
-		padding: 1vi 2vi;
-		border: 1px solid var(--border);
-		border-radius: 5px;
-	}
 
-	.buttons {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5lh;
-		margin: auto;
-		max-width: max-content;
-		width: 100%;
-		justify-content: center;
-		margin-bottom: 3vi;
-	}
-
-	button {
-		display: flex;
-		align-items: center;
-		gap: 1ch;
-		background: var(--background-button);
-		border: var(--border-button);
-		color: var(--text-button);
-
-		:global(svg) {
-			height: 1.3em;
-			width: auto;
-		}
-
-		:global(path) {
-			fill: var(--icon-button);
-		}
-	}
-
-	button.cta {
-		align-self: center;
-		padding: 2ch;
-		font-size: 1.8rem;
-		font-weight: 600;
-		display: flex;
-		align-items: center;
-		gap: 1ch;
-
-		&#shuffle {
-			background: var(--background-cta-primary);
-			border: 1px solid var(--border-cta-primary);
-			color: var(--text-cta-primary);
-
-			:global(path) {
-				fill: var(--icon-cta-primary);
-			}
-		}
-
-		&#darkmode {
-			background: var(--background-cta-secondary);
-			border: 1px solid var(--border-cta-secondary);
-			color: var(--text-cta-secondary);
-
-			:global(path) {
-				fill: var(--icon-cta-secondary);
-			}
-		}
-
-		:global(svg) {
-			height: 1.2em;
-			display: inline;
-		}
-	}
-
-	.scheme {
-		width: 100%;
-		height: max-content;
-		background: var(--main-background);
-		border-top: 1px solid var(--panel);
-		display: flex;
-		position: fixed;
-		bottom: 0px;
-		flex-wrap: wrap-reverse balance;
-		flex-direction: row-reverse;
-		--space: min(0.7vh, 0.8vw);
-		gap: var(--space);
-		justify-content: flex-end;
-		padding: var(--space);
-
-		&> .swatch {
-			flex-grow: 1;
-			min-width: 11vw;
-		}
-
-		.swatch {
-		/*
-			min-width: 150px;
-			max-width: 30%;
-			width: 100%;
-			*/
-			border: none;
-			display: flex;
-			flex-wrap: wrap;
-			background: var(--color);
-			height: min(8vi, 6vh);
-			aspect-ratio: 2/1;
-			padding: calc(var(--space) / 2);
-			border-radius: calc(var(--space) * 1.5);
-		}
-
-		.swatch .swatch {
-			height: 60%;
-			aspect-ratio: 1/1;
-			border-radius: calc(var(--space) / 1);
-		}
-	}
 
 </style>

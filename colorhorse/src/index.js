@@ -21,6 +21,7 @@
 import { hexToOklch, oklchToSrgb, maxInGamutChroma } from "./oklch.js";
 import { computeCylinderPoints } from "./cylinder-deform.js";
 import { computeColorScheme } from "./scheme.js";
+import { normalizeHue } from "./hue-deform.js";
 
 const HUE_COUNT = 12; // fixed: computeColorScheme's harmony-name table (square/
 // analagous/tertiary/...) is defined specifically for a 12-slot wheel -- a
@@ -34,6 +35,24 @@ const DEFAULTS = {
 	minChroma: 0.2,
 	shadeCount: 10,
 };
+
+// One-color fallback: when only colorOne is given, colorTwo is synthesized
+// rather than falling back to the unrelated built-in DEFAULTS pair, so the
+// scheme still visibly relates to the one color the caller actually chose.
+// +45deg (an eighth of the wheel) reads as a neighboring, harmonious hue
+// rather than the muddier near-duplicate a smaller offset would give, or
+// the jarring high-contrast pairing a wide offset (e.g. complementary,
+// +180deg) would give -- and it's deliberately NOT a multiple of 360/12=30,
+// so it doesn't land exactly on a native D-ring slot and trigger a
+// zero-bending-energy (i.e. perfectly evenly-spaced, same as no anchoring
+// at all) special case -- see cylinder-deform.js's "THE D AXIS" doc.
+const ADJACENT_HUE_OFFSET_DEG = 45;
+
+/** Same lightness/chroma as `hex`, hue rotated by ADJACENT_HUE_OFFSET_DEG. */
+function adjacentHex(hex) {
+	const { L, C, H } = hexToOklch(hex);
+	return oklchToSrgb(L, C, normalizeHue(H + ADJACENT_HUE_OFFSET_DEG)).hex;
+}
 
 // scheme.js's own role keys (kept as-is so its tests/logic stay untouched --
 // "Tip" is what its hue-picking math calls the role closest to reference
@@ -66,10 +85,14 @@ function anchorFromHex(hex) {
 }
 
 /**
- * Compute the full color scheme for two anchor colors.
+ * Compute the full color scheme for one or two anchor colors. If colorTwo
+ * is omitted (colorOne given on its own), it's synthesized via adjacentHex
+ * rather than falling back to DEFAULTS.colorTwo -- see ADJACENT_HUE_OFFSET_DEG.
+ * If BOTH are omitted, DEFAULTS' own built-in pair is used, unchanged from
+ * before this fallback existed.
  *
- * @param {string} colorOne "#rrggbb" hex
- * @param {string} colorTwo "#rrggbb" hex
+ * @param {string} [colorOne] "#rrggbb" hex
+ * @param {string} [colorTwo] "#rrggbb" hex
  * @param {{minLightness?: number, maxLightness?: number, minChroma?: number, shadeCount?: number}} [options]
  * @returns {{
  *   schemeName: string, wheelDistance: number,
@@ -79,8 +102,13 @@ function anchorFromHex(hex) {
  *   roles: Record<string, object[]>,  // role name -> shadeCount-length array of the same point shape
  * }}
  */
-function generatePalette(colorOne = DEFAULTS.colorOne, colorTwo = DEFAULTS.colorTwo, options = {}) {
+function generatePalette(colorOne, colorTwo, options = {}) {
+	const colorOneGiven = colorOne !== undefined;
+	colorOne = colorOneGiven ? colorOne : DEFAULTS.colorOne;
 	assertValidHex(colorOne, "colorOne");
+	if (colorTwo === undefined) {
+		colorTwo = colorOneGiven ? adjacentHex(colorOne) : DEFAULTS.colorTwo;
+	}
 	assertValidHex(colorTwo, "colorTwo");
 	const {
 		minLightness = DEFAULTS.minLightness,
@@ -145,7 +173,12 @@ function paletteToHexScheme(palette) {
 	return result;
 }
 
-/** The 8-role scheme as hex strings (8*shadeCount colors, 80 with the default shadeCount). */
+/**
+ * The 8-role scheme as hex strings (8*shadeCount colors, 80 with the
+ * default shadeCount). colorTwo is optional: pass colorOne alone to get a
+ * one-color fallback scheme (colorTwo synthesized adjacent to it -- see
+ * ADJACENT_HUE_OFFSET_DEG); omit both for the built-in default pair.
+ */
 export function getScheme(colorOne, colorTwo, options) {
 	return paletteToHexScheme(generatePalette(colorOne, colorTwo, options));
 }
