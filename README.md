@@ -15,8 +15,6 @@ This project contains the code for the color.horse SvelteKit website and the col
 
 I (Sam Littlefair, the human author of this project) used Claude Code in building Color Horse. I have reviewed and tested all generated code.
 
-Initially, I manually wrote the Color Horse math and SVGs without AI. Then I prompted Claude Code to interpret and reformulate my implementation. On review, I accepted all of the generated code as it was superior to my own.
-
-With the exception of the SVGs and some of the interactivity, I manually rewrote most of the .svelte files for the color.horse app.
+Initially, I manually wrote the Color Horse math and SVGs without AI. Then I prompted Claude Code to interpret and reformulate my implementation. On review, I accepted all of the generated code as it was superior to my own. Then, I prompted Claude Code to port the interactive SVGs to a SvelteKit app. With the exception of the SVGs and some of the interactivity, I manually rewrote most of the .svelte files.
 
 As I have worked on the app and the package, I have delegated some work to Claude Code. I review all changes with the intention that I should understand the entire codebase and that I should reasonably be able to maintain all of the code myself.
