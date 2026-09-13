@@ -128,12 +128,25 @@
 		{ name: "Subway", colorOne: "#ffCB0A", colorTwo: "#009743" }
 	];
 
+	// Two of the three RGB channels are pushed away from 127.5 in one
+	// direction and the third is pushed the same distance in the opposite
+	// direction, which keeps every random color near an edge of the RGB
+	// cube -- i.e. near the sRGB gamut boundary -- instead of near its
+	// muddy grey/brown center, regardless of which hue falls out. Lower
+	// RANDOM_COLOR_POWER skews channel magnitudes further toward that
+	// boundary (more vivid); raise it toward 1 for weaker, more muted colors.
+	const RANDOM_COLOR_POWER = 0.8;
+
 	function randomAnchorHex() {
-		const H = Math.random() * 360;
-		const L = 0.45 + Math.random() * 0.25; // avoid near-black/near-white picks
-		const maxC = maxInGamutChroma(L, H);
-		const C = maxC * (0.6 + Math.random() * 0.35); // vivid, not necessarily gamut-max
-		return oklchToSrgb(L, C, H).hex;
+		const sign = Math.sign(Math.random() - 0.5) || 1;
+		const n1 = sign * Math.floor(1 + Math.random() ** RANDOM_COLOR_POWER * 127);
+		const n2 = sign * Math.floor(1 + Math.random() ** RANDOM_COLOR_POWER * 127);
+		const n3 = -sign * Math.floor(1 + Math.random() ** RANDOM_COLOR_POWER * 127);
+		const oddOneOut = Math.floor(Math.random() * 3);
+		const offsets = [n1, n2];
+		offsets.splice(oddOneOut, 0, n3);
+		const [r, g, b] = offsets.map((v) => Math.round(127.5 + v));
+		return "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
 	}
 
 	/* ------------------------- state ------------------------- */
@@ -832,25 +845,60 @@
 </svelte:head>
 
 
+<section>
+<div class="top"/>
 <header class:colorized>
-	<h1 href="/" id="title">Color Horse</h1>
-	<p>The <em>automatic</em> color scheme generator</p>
+	<!-- <h1 href="/" id="title">Color Horse</h1> -->
+	<blockquote>
+	<p>The <em>magic</em> color scheme generator</p>
+	</blockquote>
 	<Logo colorOne={colorized ? a2Color : "#000"} colorTwo={colorized ? a1Color : "#000"} />
 </header>
+</section>
 
 
 <style>
 	:global(body) {
 		color: var(--text);
 		font-family: Fraunces;
+		display: block;
+	}
+
+	section {
+		width: min-content;
+	}
+
+	.top {
+		height: 100px;
+		width: 1200px;
+		padding: 0;
+		margin: 0;
+		--segment: calc(100% / 8);
+		background: linear-gradient(
+			to right,
+			var(--primary-07) calc(1 * var(--segment)),
+			var(--secondary-06) calc(1 * var(--segment)),
+			var(--secondary-06) calc(2 * var(--segment)),
+			var(--tertiary-06) calc(2 * var(--segment)),
+			var(--tertiary-06) calc(3 * var(--segment)),
+			var(--accent-06) calc(3 * var(--segment)),
+			var(--accent-06) calc(4 * var(--segment)),
+			var(--tip-07) calc(4 * var(--segment)),
+			var(--tip-07) calc(5 * var(--segment)),
+			var(--info-08) calc(5 * var(--segment)),
+			var(--info-08) calc(6 * var(--segment)),
+			var(--warning-07) calc(6 * var(--segment)),
+			var(--warning-07) calc(7 * var(--segment)),
+			var(--danger-05) calc(7 * var(--segment))
+		);
 	}
 
 	header {
-		background: var(--menu);
+		margin: 0;
+		--main-background: var(--primary-02);
+		background: var(--main-background);
 		width: 1200px;
-		min-height: 800px;
-		max-height: 800px;
-		height: 800px;
+		height: 600px;
 		align-items: flex-end;
 		font-size: min(10vi, 5em);
 		display: flex;
@@ -860,8 +908,8 @@
 		text-box-edge: ex alphabetic;
 		text-box-trim: trim-both;
 		padding-inline: 10%;
-		border-left: 40px solid var(--tertiary-08);
 		box-sizing: border-box;
+		padding-bottom: 0.5lh;
 	}
 
 	header h1 {
@@ -877,17 +925,51 @@
 		color: var(--title);
 	}
 
-	p {
-		font-weight: 700;
-		font-style: italic;
-		color: var(--pop-text);
+	blockquote {
 		flex: 4;
+		padding: 0;
+		margin: 0;
+		transform: rotate(-1deg);
+	}
+
+	p {
+		font-weight: 900;
+		font-style: italic;
+		line-height: 1.1em;
 		text-box-trim: trim-both;
 		text-box-edge: ex alphabetic;
+		-webkit-text-stroke: 0px var(--accent);
+		paint-order: stroke fill;
+
+		--accent: var(--tertiary-03);
+		color: var(--primary-09);
 
 		em {
-			color: var(--pop-text-em);
+			color: var(--secondary-08);
 		}
+		
+			display: inline;
+		  background: linear-gradient(
+		  	transparent calc(0.75em - 1ex),
+		  	var(--accent) calc(0.75em - 1ex),
+		  	var(--accent) 1.25em,
+		  	transparent 1.25em
+		  ),
+		  linear-gradient(
+		  	100deg,
+		  	var(--main-background) 4%,
+		  	transparent 4%,
+		  	transparent 96%,
+		  	var(--main-background) 96%
+		  );
+		  background-blend-mode: darken;
+		  mix-blend-mode: lighten;
+		  line-height: 1cap;
+		  border-radius: 3px;
+		  padding-inline: 1.5ch;
+		  box-decoration-break: clone;
+		  -webkit-box-decoration-break: clone;
+
 	}
 
 	header :global(svg) {

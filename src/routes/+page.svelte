@@ -128,12 +128,25 @@
 		{ name: "Subway", colorOne: "#ffCB0A", colorTwo: "#009743" }
 	];
 
+	// Two of the three RGB channels are pushed away from 127.5 in one
+	// direction and the third is pushed the same distance in the opposite
+	// direction, which keeps every random color near an edge of the RGB
+	// cube -- i.e. near the sRGB gamut boundary -- instead of near its
+	// muddy grey/brown center, regardless of which hue falls out. Lower
+	// RANDOM_COLOR_POWER skews channel magnitudes further toward that
+	// boundary (more vivid); raise it toward 1 for weaker, more muted colors.
+	const RANDOM_COLOR_POWER = 0.8;
+
 	function randomAnchorHex() {
-		const H = Math.random() * 360;
-		const L = 0.45 + Math.random() * 0.25; // avoid near-black/near-white picks
-		const maxC = maxInGamutChroma(L, H);
-		const C = maxC * (0.6 + Math.random() * 0.35); // vivid, not necessarily gamut-max
-		return oklchToSrgb(L, C, H).hex;
+		const sign = Math.sign(Math.random() - 0.5) || 1;
+		const n1 = sign * Math.floor(1 + Math.random() ** RANDOM_COLOR_POWER * 127);
+		const n2 = sign * Math.floor(1 + Math.random() ** RANDOM_COLOR_POWER * 127);
+		const n3 = -sign * Math.floor(1 + Math.random() ** RANDOM_COLOR_POWER * 127);
+		const oddOneOut = Math.floor(Math.random() * 3);
+		const offsets = [n1, n2];
+		offsets.splice(oddOneOut, 0, n3);
+		const [r, g, b] = offsets.map((v) => Math.round(127.5 + v));
+		return "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
 	}
 
 	/* ------------------------- state ------------------------- */
@@ -346,10 +359,10 @@
 		--title: light-dark(var(--primary-05), var(--primary-06));
 		--pop-text: light-dark(var(--secondary-05), var(--secondary-08));
 		--pop-text-em: light-dark(var(--secondary-07), var(--tertiary-07));
-		--background-button: light-dark(var(--accent-05), var(--primary-05));
-		--border-button: light-dark(var(--accent-04), var(--primary-04));
-		--icon-button: light-dark(var(--accent-08), var(--primary-08));
-		--text-button: light-dark(var(--accent-10), var(--primary-10));
+		--background-button: light-dark(var(--accent-05), var(--accent-05));
+		--border-button: light-dark(var(--accent-04), var(--accent-04));
+		--icon-button: light-dark(var(--accent-08), var(--accent-08));
+		--text-button: light-dark(var(--accent-10), var(--accent-10));
 
 		--background-cta-primary: light-dark(var(--primary-05), var(--primary-05));
 		--border-cta-primary: light-dark(var(--primary-04), var(--primary-04));
@@ -1213,6 +1226,13 @@
 						}}
 					/>
 				</label>
+				<button onclick={() => {
+					a1Color = randomAnchorHex()
+					a2Color = randomAnchorHex()
+				}}>
+					<Shuffle />
+					Shuffle
+				</button>
 			</div>
 			<div class="sliders">
 				<label>Darkest Shade
@@ -1618,6 +1638,24 @@
 	}
 	.sliders label {
 		flex: 1;
+	}
+
+	.colors {
+		display: flex;
+		flex-direction: column;
+
+		button {
+			margin-top: 1em;
+			font-size: 0.8em;
+			align-self: flex-start;
+			background: var(--background-cta-primary);
+			border: var(--border-cta-primary);
+			color: var(--text-cta-primary);
+
+			:global(path) {
+				fill: var(--icon-cta-primary);
+			}
+		}
 	}
 
 	.controls .sliders, .controls .colors {
