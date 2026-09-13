@@ -1262,6 +1262,11 @@
 						bind:value={minChroma}
 					/>
 				</label>
+				{#if cyl.chromaMaxedOut}
+					<p class="chroma-maxed-note">
+						EXPERIMENTAL: one of your anchors is so vivid at its shade that we raised the saturation floor to keep the palette smooth — some colors are as saturated as this hue and lightness allow.
+					</p>
+				{/if}
 			</div>
 		</div>
 		{@render schemePalette()}
@@ -1670,6 +1675,12 @@
 	.controls .sliders {
 		display: flex;
 		flex-direction: column;
+	}
+
+	.chroma-maxed-note {
+		font-size: 0.8em;
+		color: var(--yellow);
+		margin: 0.5em 0 0;
 	}
 
 	input[type="range"] {

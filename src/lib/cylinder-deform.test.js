@@ -12,8 +12,10 @@ import {
   computeCylinderRGrid,
   computeCylinderZLevels,
   computeCylinderPoints,
+  computeAdaptiveChromaFloor,
   bendingEnergy,
 } from './cylinder-deform.js';
+import { computeLineBendingDisplacements } from './line-deform.js';
 
 import { describe, it, expect } from 'vitest';
 
@@ -254,9 +256,11 @@ describe('cylinder-deform', () => {
       const anchorZIndices = [6, 3]; // anchorOne at zIndex 6, anchorTwo at zIndex 3
       const minChroma = 0.15;
       const numZ = 10;
-      const RGrid = computeCylinderRGrid(ringR, numZ, minChroma, anchorIndices, anchorZIndices);
+      const { RGrid, maxedOutColumns } = computeCylinderRGrid(ringR, numZ, minChroma, anchorIndices, anchorZIndices);
 
       assert(RGrid.length === numZ, `RGrid has ${numZ} rows (Z-levels), got ${RGrid.length}`);
+      assert(maxedOutColumns.length === ringR.length, `maxedOutColumns has one entry per D-index, got ${maxedOutColumns.length}`);
+      assert(maxedOutColumns.every((v) => v === false), 'none of these mild, centered anchors need the floor raised');
       assert(RGrid.every((row) => row.length === ringR.length), 'every RGrid row has one value per D-index');
 
       // Top and bottom of every column are pinned exactly to minChroma.
@@ -284,11 +288,13 @@ describe('cylinder-deform', () => {
     //    anchors in full (D, Z, R), even with the R-taper applied.
     // ---------------------------------------------------------------------------
     {
-      const { points, D, R, zLevels, anchorIndices, anchorZIndices } = computeCylinderPoints(X, 10, [anchorOne, anchorTwo], 0.2, 0, 1);
+      const { points, D, R, zLevels, anchorIndices, anchorZIndices, chromaMaxedOut, maxedOutColumns } = computeCylinderPoints(X, 10, [anchorOne, anchorTwo], 0.2, 0, 1);
       assert(points.length === 120, `computeCylinderPoints returns 120 points, got ${points.length}`);
       assert(D.length === X, 'D has 12 values');
       assert(R.length === 10 && R.every((row) => row.length === X), 'R is a 10x12 grid (Z-levels x D-indices)');
       assert(zLevels.length === 10, 'zLevels has 10 values');
+      assert(chromaMaxedOut === false, 'these mild, mid-stack anchors (R=0.7/0.6, Z=0.4/0.3) never need the floor raised');
+      assert(maxedOutColumns.length === X && maxedOutColumns.every((v) => v === false), 'maxedOutColumns agrees, entry per D-index');
 
       const anchorPoints = points.filter((p) => p.isAnchor);
       assert(anchorPoints.length === 2, `exactly 2 of the 120 points are flagged as anchors, got ${anchorPoints.length}`);
@@ -343,6 +349,73 @@ describe('cylinder-deform', () => {
       threw = false;
       try { computeCircularBendingDisplacements(4, [{ index: 0, value: 1 }]); } catch (e) { threw = true; }
       assert(threw, 'rejects X < 5');
+    }
+
+    // ---------------------------------------------------------------------------
+    // 11. EXPERIMENTAL: computeAdaptiveChromaFloor prevents the Z-column
+    //     overshoot/plateau bug that shows up when an anchor's equator pin
+    //     sits close to one end of the stack with a high chroma value.
+    // ---------------------------------------------------------------------------
+    {
+      const numZ = 10;
+
+      // A centered, mild equator: no correction should be needed at all --
+      // the whole point of doing this per-column instead of raising a
+      // global floor is that ordinary palettes are untouched.
+      {
+        const requestedFloor = 0.15;
+        const { floor, maxedOut } = computeAdaptiveChromaFloor(numZ, 0.6, 5, requestedFloor);
+        assertClose(floor, requestedFloor, 1e-9, 'a centered, mild equator needs no floor correction');
+        assert(maxedOut === false, 'and is not flagged as maxed out');
+      }
+
+      // The documented worst case: equator one step in from the end, at the
+      // gamut ceiling. Confirm the UNCORRECTED column actually overshoots
+      // past 1 (the bug this exists to fix), then confirm the corrected
+      // floor brings the whole column back to within [requestedFloor, 1].
+      {
+        const requestedFloor = 0.05;
+        const equatorValue = 1.0;
+        const equatorZIndex = 1;
+
+        const uncorrected = computeLineBendingDisplacements(numZ, [
+          { index: 0, value: requestedFloor },
+          { index: numZ - 1, value: requestedFloor },
+          { index: equatorZIndex, value: equatorValue },
+        ]);
+        assert(Math.max(...uncorrected) > 1, `sanity check: the naive column really does overshoot past 1 (got ${Math.max(...uncorrected).toFixed(3)}), confirming this test exercises the bug`);
+
+        const { floor, maxedOut } = computeAdaptiveChromaFloor(numZ, equatorValue, equatorZIndex, requestedFloor);
+        assert(maxedOut === true, 'this configuration is correctly flagged as needing the floor raised');
+        assert(floor > requestedFloor && floor <= 1, `the corrected floor (${floor.toFixed(3)}) is raised above the request but never past the ceiling`);
+
+        const corrected = computeLineBendingDisplacements(numZ, [
+          { index: 0, value: floor },
+          { index: numZ - 1, value: floor },
+          { index: equatorZIndex, value: equatorValue },
+        ]);
+        assert(Math.max(...corrected) <= 1 + 1e-6, `the corrected column no longer overshoots past 1 (max ${Math.max(...corrected).toFixed(6)})`);
+
+        // The correction should be the SMALLEST floor that works -- a
+        // slightly smaller floor should still overshoot (otherwise this
+        // isn't finding the minimal fix, just an over-cautious one).
+        const almostEnough = computeLineBendingDisplacements(numZ, [
+          { index: 0, value: floor - 0.01 },
+          { index: numZ - 1, value: floor - 0.01 },
+          { index: equatorZIndex, value: equatorValue },
+        ]);
+        assert(Math.max(...almostEnough) > 1 + 1e-6, 'a floor just below the corrected value still overshoots, confirming the correction is minimal, not merely sufficient');
+      }
+
+      // computeCylinderPoints propagates the flag end to end: an anchor
+      // picked at a near-extreme lightness with high chroma should trip
+      // chromaMaxedOut for the full palette.
+      {
+        const extremeAnchor = { D: 0, Z: 0.02, R: 0.98 };
+        const mildAnchor = { D: 150, Z: 0.5, R: 0.4 };
+        const { chromaMaxedOut } = computeCylinderPoints(12, numZ, [extremeAnchor, mildAnchor], 0.05, 0, 1);
+        assert(chromaMaxedOut === true, 'a near-white/black, highly saturated anchor trips the palette-wide maxed-out flag');
+      }
     }
 
     // ---------------------------------------------------------------------------

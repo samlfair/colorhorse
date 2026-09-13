@@ -277,7 +277,7 @@ describe('cylinder-chroma-shape', () => {
       // a flat shelf at minChroma, still a single bulge shape overall. (dIndex
       // 0 is the column under test; the "anchor" for this synthetic call sits
       // at dIndex 1, so column 0 is exercised as a non-anchor column.)
-      const nonAnchorCol = computeCylinderRGrid([0.05, 0.05], 10, 0.2, [1, 1], [1, 1]).map((row) => row[0]);
+      const nonAnchorCol = computeCylinderRGrid([0.05, 0.05], 10, 0.2, [1, 1], [1, 1]).RGrid.map((row) => row[0]);
       assert(inDomain(nonAnchorCol, 0.2, 1, TOL), `a non-anchor column never drops below minChroma even when its ring value would want to, got ${nonAnchorCol.map((v) => v.toFixed(3))}`);
       assert(isUnimodal(nonAnchorCol, TOL), 'a non-anchor column stays a single bulge (no furrow) once floored');
 
@@ -285,7 +285,7 @@ describe('cylinder-chroma-shape', () => {
       // allowed through (exact color reproduction), but must stay within
       // [0,1] and remain a single smooth valley (not a furrow with extra
       // wiggles).
-      const anchorCol = computeCylinderRGrid([0.05, 0.05], 10, 0.2, [0, 0], [1, 1]).map((row) => row[0]);
+      const anchorCol = computeCylinderRGrid([0.05, 0.05], 10, 0.2, [0, 0], [1, 1]).RGrid.map((row) => row[0]);
       assertAnchorColumnClean(anchorCol);
     }
 
@@ -310,7 +310,7 @@ describe('cylinder-chroma-shape', () => {
             total++;
             // dIndex 0 is the column under test; anchors are placed at
             // dIndex 5/6 so column 0 is always a NON-anchor column.
-            const RGrid = computeCylinderRGrid([ringVal, ringVal, ringVal, ringVal, ringVal, ringVal, ringVal], numZLevels, mc, [5, 6], [eq, eq]);
+            const { RGrid } = computeCylinderRGrid([ringVal, ringVal, ringVal, ringVal, ringVal, ringVal, ringVal], numZLevels, mc, [5, 6], [eq, eq]);
             const col = RGrid.map((row) => row[0]);
             if (!inDomain(col, mc, 1, TOL)) boundsViolations++;
             if (!isUnimodal(col, TOL)) {

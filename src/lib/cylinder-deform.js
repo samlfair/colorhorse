@@ -383,6 +383,70 @@ export function computeCylinderR(X, anchorOneIndex, anchorTwoIndex, anchorOneR, 
 }
 
 /**
+ * EXPERIMENTAL (see git branch): how far a Z-column's floor pin must be
+ * raised above `requestedFloor` to keep the WHOLE column at or under
+ * `ceiling`, for one D-index's hue.
+ *
+ * computeCylinderRGrid's column solve (three pins: a shared floor value at
+ * both ends, `equatorValue` at `equatorZIndex`) is a LINEAR system in the
+ * pin values, so its solution is an AFFINE function of the shared floor f
+ * for fixed equatorValue/equatorZIndex/numZLevels -- the whole f in [0, 1]
+ * relationship is exactly a straight line between just two solves (f=0 and
+ * f=1), not merely close to one, so no search/iteration is needed to find
+ * the smallest floor that works.
+ *
+ * WHY THIS MATTERS: when equatorZIndex sits near either end of the stack
+ * (an anchor picked at a very light or very dark lightness) with a high
+ * equatorValue, the solve can ring well past equatorValue on the far side
+ * of that pin before turning back -- the same overshoot minimum-
+ * bending-energy splines are known for between two very differently-valued
+ * pins that are close together (empirically: pinning equatorValue=1.0 one
+ * step in from the end of a 10-level stack overshoots to ~2.0 before any
+ * clamping). Left alone, every over-`ceiling` point gets clamped flat,
+ * producing a visible PLATEAU instead of a smooth taper. Raising the floor
+ * pin shrinks the height difference between the two near pins, which
+ * shrinks the overshoot proportionally (again, exactly, not approximately,
+ * since the system is linear) -- f=`ceiling` always brings the column
+ * completely flat (all three pins equal -> zero curvature -> the unique
+ * minimum-energy solution is the constant `ceiling`), so a floor that
+ * works always exists at or below `ceiling`; this finds the SMALLEST one,
+ * so real floor only gets raised as much as this specific anchor actually
+ * demands -- a muted, centered anchor pair needs no boost at all.
+ *
+ * @param {number} numZLevels
+ * @param {number} equatorValue  the interior pin (that hue's ring chroma)
+ * @param {number} equatorZIndex  where the interior pin sits, 0..numZLevels-1
+ * @param {number} requestedFloor  the user's minChroma; never returned lower
+ *   than this even when no correction is needed
+ * @param {number} [ceiling=1]  the gamut boundary in relative-chroma terms
+ * @returns {{floor: number, maxedOut: boolean}} floor: the pin value to
+ *   actually use (>= requestedFloor, <= ceiling); maxedOut: true if it had
+ *   to be raised above requestedFloor to keep this column in gamut.
+ */
+export function computeAdaptiveChromaFloor(numZLevels, equatorValue, equatorZIndex, requestedFloor, ceiling = 1) {
+  const pinsAt = (f) => [
+    { index: 0, value: f },
+    { index: numZLevels - 1, value: f },
+    { index: equatorZIndex, value: equatorValue },
+  ];
+  const col0 = computeLineBendingDisplacements(numZLevels, pinsAt(0));
+  const col1 = computeLineBendingDisplacements(numZLevels, pinsAt(1));
+
+  let neededFloor = requestedFloor;
+  for (let k = 0; k < numZLevels; k++) {
+    const slope = col1[k] - col0[k];
+    // Only a NEGATIVE slope means raising f brings this point DOWN toward
+    // the ceiling; a flat or positive slope means f can't help here (and
+    // in practice never needs to -- see doc above).
+    if (slope >= 0) continue;
+    const f = (ceiling - col0[k]) / slope;
+    if (f > neededFloor) neededFloor = f;
+  }
+  neededFloor = Math.min(neededFloor, ceiling);
+  return { floor: neededFloor, maxedOut: neededFloor > requestedFloor };
+}
+
+/**
  * Taper R with Z, per D-index ("shade column"), so the cylinder is a
  * little egg-shaped: chroma bulges out to each hue's ring value (from
  * computeCylinderR) somewhere in the middle of the column and reduces back
@@ -407,16 +471,23 @@ export function computeCylinderR(X, anchorOneIndex, anchorTwoIndex, anchorOneR, 
  * @param {number[]} ringR  length-X result of computeCylinderR (one value
  *   per D-index -- the "equatorial" chroma for that hue)
  * @param {number} numZLevels
- * @param {number} minChroma  pinned at the top and bottom of every column
+ * @param {number} minChroma  requested floor, pinned at the top and bottom
+ *   of every column -- EXPERIMENTAL: a column may pin higher than this if
+ *   computeAdaptiveChromaFloor finds that's needed to stay in gamut; see
+ *   its doc
  * @param {number[]} anchorIndices  [anchorOneIndex, anchorTwoIndex]
  * @param {number[]} anchorZIndices [anchorOneZIndex, anchorTwoZIndex]
- * @returns {number[][]} RGrid[zIndex][dIndex], the final R for every point
+ * @returns {{RGrid: number[][], maxedOutColumns: boolean[]}} RGrid[zIndex][dIndex]
+ *   is the final R for every point; maxedOutColumns[dIndex] is true where
+ *   that column's floor had to be raised above `minChroma` (see
+ *   computeAdaptiveChromaFloor)
  */
 export function computeCylinderRGrid(ringR, numZLevels, minChroma, anchorIndices, anchorZIndices) {
   const X = ringR.length;
   let sharedEquator = Math.round((anchorZIndices[0] + anchorZIndices[1]) / 2);
   sharedEquator = Math.min(Math.max(sharedEquator, 1), numZLevels - 2);
   const RGrid = Array.from({ length: numZLevels }, () => new Array(X));
+  const maxedOutColumns = new Array(X).fill(false);
 
   for (let i = 0; i < X; i++) {
     const isAnchorColumn = i === anchorIndices[0] || i === anchorIndices[1];
@@ -431,9 +502,11 @@ export function computeCylinderRGrid(ringR, numZLevels, minChroma, anchorIndices
     // function correct on its own, without silently depending on that
     // upstream guarantee holding.
     const equatorValue = isAnchorColumn ? ringR[i] : Math.max(ringR[i], minChroma);
+    const { floor, maxedOut } = computeAdaptiveChromaFloor(numZLevels, equatorValue, equatorZIndex, minChroma);
+    maxedOutColumns[i] = maxedOut;
     const pins = [
-      { index: 0, value: minChroma },
-      { index: numZLevels - 1, value: minChroma },
+      { index: 0, value: floor },
+      { index: numZLevels - 1, value: floor },
       { index: equatorZIndex, value: equatorValue },
     ];
     const pinnedZ = new Set([0, numZLevels - 1, equatorZIndex]);
@@ -446,19 +519,20 @@ export function computeCylinderRGrid(ringR, numZLevels, minChroma, anchorIndices
         // floor, but only at this single pinned position.
         RGrid[k][i] = column[k];
       } else {
-        // Every other free point is floored to minChroma, including free
-        // points elsewhere in an anchor's OWN column: being "an anchor
-        // column" only excuses the one pinned equator point above, not the
-        // whole column. Left unfloored, a minimum-bending-energy curve
-        // reacting to that one low pin can undershoot toward zero at other
-        // Z-levels in the same column -- e.g. a faint anchor's hue showing
-        // up as an unintended near-zero dip on a completely different
-        // shade row's ring, nowhere near that anchor's own position.
-        RGrid[k][i] = clampToFloor(column[k], minChroma);
+        // Every other free point is floored to this column's (possibly
+        // raised) floor, including free points elsewhere in an anchor's
+        // OWN column: being "an anchor column" only excuses the one pinned
+        // equator point above, not the whole column. Left unfloored, a
+        // minimum-bending-energy curve reacting to that one low pin can
+        // undershoot toward zero at other Z-levels in the same column --
+        // e.g. a faint anchor's hue showing up as an unintended near-zero
+        // dip on a completely different shade row's ring, nowhere near
+        // that anchor's own position.
+        RGrid[k][i] = clampToFloor(column[k], floor);
       }
     }
   }
-  return RGrid;
+  return { RGrid, maxedOutColumns };
 }
 
 /**
@@ -510,6 +584,7 @@ export function computeCylinderZLevels(numZLevels, anchorOneZ, anchorTwoZ, minL,
  *   points: {dIndex:number, zIndex:number, D:number, Z:number, R:number, isAnchor:boolean, anchorPos:(number|null)}[],
  *   D: number[], R: number[][], zLevels: number[],
  *   anchorIndices: number[], anchorZIndices: number[],
+ *   chromaMaxedOut: boolean, maxedOutColumns: boolean[],
  * }}
  */
 export function computeCylinderPoints(X, numZLevels, anchors, minChroma, minL, maxL) {
@@ -521,7 +596,11 @@ export function computeCylinderPoints(X, numZLevels, anchors, minChroma, minL, m
   const ringR = computeCylinderR(X, anchorIndices[0], anchorIndices[1], anchorOne.R, anchorTwo.R, minChroma);
   const { zLevels, anchorOneZIndex, anchorTwoZIndex } = computeCylinderZLevels(numZLevels, anchorOne.Z, anchorTwo.Z, minL, maxL);
   const anchorZIndices = [anchorOneZIndex, anchorTwoZIndex];
-  const R = computeCylinderRGrid(ringR, numZLevels, minChroma, anchorIndices, anchorZIndices);
+  const { RGrid: R, maxedOutColumns } = computeCylinderRGrid(ringR, numZLevels, minChroma, anchorIndices, anchorZIndices);
+  // EXPERIMENTAL: surfaces computeAdaptiveChromaFloor's per-column
+  // corrections as one palette-wide flag, for a UI message like "minimum
+  // saturation was raised for some hues to keep them in gamut."
+  const chromaMaxedOut = maxedOutColumns.some(Boolean);
 
   const points = [];
   for (let k = 0; k < numZLevels; k++) {
@@ -538,7 +617,7 @@ export function computeCylinderPoints(X, numZLevels, anchors, minChroma, minL, m
     }
   }
 
-  return { points, D, R, zLevels, anchorIndices, anchorZIndices };
+  return { points, D, R, zLevels, anchorIndices, anchorZIndices, chromaMaxedOut, maxedOutColumns };
 }
 
 /** Discrete bending energy E = sum (u[i+1] - 2u[i] + u[i-1])^2, circular. */
