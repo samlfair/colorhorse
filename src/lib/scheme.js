@@ -25,9 +25,22 @@ import { hexToOklch } from './oklch.js';
  * "Closest"/"farthest" hue is measured as ordinary circular hue distance in
  * degrees (via circularDelta from hue-deform.js), not wheel-index steps --
  * "most green" is a continuous-hue notion, not a discrete-slot one. The
- * reference R/G/B/Y hues are computed from the actual OKLCH conversion of
- * pure sRGB red/green/blue/yellow (oklch.js's hexToOklch), not eyeballed,
- * so they're exact for this project's own color math.
+ * reference R/G/B hues are computed from the actual OKLCH conversion of
+ * pure sRGB red/green/blue (oklch.js's hexToOklch), not eyeballed, so
+ * they're exact for this project's own color math.
+ *
+ * Yellow is the deliberate exception. sRGB's yellow secondary (#ffff00) sits
+ * at OKLCH hue ~110, which is the GREEN edge of what reads as yellow: every
+ * mid or dark shade at that hue has G >= R in sRGB, i.e. it renders as olive
+ * (#94953a, #666726...), and on an evenly-spaced 12-hue ring the nearest slot
+ * is 120, where Tailwind's *lime* lives (lime-400 = ~129). The Warning role
+ * leans on exactly those mid/dark shades (border, heading, text), which is
+ * why it looked green rather than yellow. Design-system yellows/ambers used
+ * for "warning" cluster around hue 85-100 instead (Tailwind yellow-400 ~92,
+ * Material/Bootstrap amber ~85, Radix yellow-9 ~101, CSS gold ~95), so the
+ * reference is #ffcc00 (~90, the middle of that cluster). At 90 the dark
+ * shades come out gold/brown (#ad8a3a, #795f25), which is what a warning
+ * ramp is expected to look like.
  *
  * ---------------------------------------------------------------------------
  * SCHEME CLASSIFICATION
@@ -68,7 +81,8 @@ export const REFERENCE_HUES = {
   red: hexToOklch('#ff0000').H,
   green: hexToOklch('#00ff00').H,
   blue: hexToOklch('#0000ff').H,
-  yellow: hexToOklch('#ffff00').H,
+  // Not #ffff00 -- see the "Yellow is the deliberate exception" note above.
+  yellow: hexToOklch('#ffcc00').H,
 };
 
 export const SCHEME_NAMES_BY_DISTANCE = {
