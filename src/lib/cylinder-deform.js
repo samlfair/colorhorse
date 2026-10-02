@@ -1,6 +1,6 @@
 import { solveLinearSystem } from './deform.js';
 import { normalizeHue as normalizeDegrees, circularDelta } from './hue-deform.js';
-import { computeSortedPinPlacement, computeLineDeformation, computeLineBendingDisplacements } from './line-deform.js';
+import { computeSortedPinPlacement, computeLineDeformation } from './line-deform.js';
 
 /**
  * Cylinder deformation: combines all three prior mechanisms (circle, line,
@@ -48,8 +48,8 @@ import { computeSortedPinPlacement, computeLineDeformation, computeLineBendingDi
  * remaining shape guarantee this doesn't cover on its own, and
  * test-cylinder-ring-convexity.js for the confirming sweep.)
  *
- * minChroma is applied AFTER the solve, as a floor on every free
- * (non-anchor) point -- never as a pin anywhere on the ring.
+ * The chroma floor (computeChromaFloor) is applied AFTER the solve, as a
+ * floor on every point -- never as a pin anywhere on the ring.
  *
  * ---------------------------------------------------------------------------
  * THE Z AXIS: THE LINE MODEL, AS A SEPARATE 10-LEVEL STACK
@@ -64,6 +64,11 @@ import { computeSortedPinPlacement, computeLineDeformation, computeLineBendingDi
  * from line-deform.js, both reused unmodified. minL/maxL are user-adjustable
  * (an earlier version hardcoded these to 0 and 1).
  *
+ * `contrast` (0-1) biases the free shades toward both ends of the stack by
+ * running that line model through an S-curve (contrastCurve), so shades
+ * crowd toward black and white and spread out in the middle while every
+ * pin still lands exactly. See computeCylinderZLevels.
+ *
  * ---------------------------------------------------------------------------
  * THE R TAPER: WHY THE CYLINDER IS A LITTLE EGG-SHAPED
  * ---------------------------------------------------------------------------
@@ -72,13 +77,20 @@ import { computeSortedPinPlacement, computeLineDeformation, computeLineBendingDi
  * up and down a column of the same hue at different lightnesses: near
  * black (Z close to 0) and near white (Z close to 1) there's very little
  * room for any chroma at all (the sRGB gamut genuinely narrows there).
- * computeCylinderRGrid runs a SECOND curve per D-index, this time along Z
- * instead of D: pinned to `minChroma` at the top and bottom of the column,
- * with a single interior anchor pinned to that hue's ring value from
- * computeCylinderR. So R becomes a full 12x10 grid (one value per point),
- * not just 12 values repeated at every level -- see its doc for why the
- * anchor columns need special handling to keep their own reproduced color
- * exact.
+ * computeCylinderRGrid builds a SECOND curve per D-index, this time along
+ * Z instead of D: a symmetric bulge that tapers to the floor at the end of
+ * the column farther from its peak, passing through that hue's ring value
+ * at that hue's imputed shade. So R becomes a full 12x10 grid (one value per
+ * point), not just 12 values repeated at every level.
+ *
+ * The peak normally sits mid-column, but a hue whose ring value is high
+ * at a shade far from the middle can't be reached by a mid-column peak
+ * capped at the gamut ceiling, so the peak slides toward that shade
+ * instead (computeColumnPeak). An earlier version solved each column as a
+ * free three-pin bending curve, which kept rising past an off-centre pin
+ * and had to be clipped flat at the ceiling -- a plateau of identical
+ * shades, or, once the floor was raised to stop it, a column with no
+ * taper at all.
  *
  * ---------------------------------------------------------------------------
  * WHY R IS CLAMPED, THEN CONVEXIFIED
@@ -107,13 +119,9 @@ import { computeSortedPinPlacement, computeLineDeformation, computeLineBendingDi
  *     very different R -- exactly the "two close, differently saturated
  *     colors" case a real user would pick.
  *
- *     FIX: clamp every free (non-pinned) point to [minChroma, 1] right
- *     after the solve. `minChroma` is documented as the floor for the
- *     whole ring, so every free point should honor it, not just whichever
- *     one happens to be pinned. The two anchor pins are the one exception:
- *     an anchor's own picked chroma can legitimately be lower than
- *     whatever minChroma the user separately set (exact color reproduction
- *     always wins over the floor), so pinned positions are left untouched.
+ *     FIX: clamp every point to [floor, 1] right after the solve. The
+ *     floor never exceeds either anchor's own R (computeChromaFloor), so
+ *     this never moves an anchor pin.
  *
  *  2. STAY PERFECTLY IN-DOMAIN AND STILL TRACE A NON-CONVEX POLAR SHAPE.
  *     This is a genuinely separate bug from (1), found AFTER fixing it: a
@@ -269,7 +277,7 @@ export function computeCylinderD(X, anchors) {
   return { D, nativeD, anchorIndices, u };
 }
 
-/** Clamp a free (non-pinned) relative-chroma value to the user's floor. */
+/** Clamp a relative-chroma value to [floor, 1]. */
 function clampToFloor(v, floor) {
   return Math.min(1, Math.max(floor, v));
 }
@@ -355,8 +363,8 @@ export function convexifyRing(angles, values, exemptIndices) {
 /**
  * Compute R for all X D-indices: a closed ring (computeCircularBendingDisplacements,
  * the SAME solver the D axis itself uses), pinned at exactly the two
- * anchors' D-indices to their own R. `minChroma` is then applied as a
- * floor on every free (non-anchor) point, and the whole ring is
+ * anchors' D-indices to their own R. The chroma floor (computeChromaFloor)
+ * is then applied to every point, and the whole ring is
  * convexified so its polar outline (radius=R, angle=D) is a smooth convex
  * ovoid rather than a heart/cardioid shape. See module doc "WHY R IS
  * CLAMPED, THEN CONVEXIFIED" for why both steps are needed.
@@ -366,7 +374,7 @@ export function convexifyRing(angles, values, exemptIndices) {
  * @param {number} anchorTwoIndex
  * @param {number} anchorOneR
  * @param {number} anchorTwoR
- * @param {number} minChroma  floor for every point except the two anchors
+ * @param {number} minChroma  requested floor (see computeChromaFloor)
  * @returns {number[]} R value for every D-index, length X
  */
 export function computeCylinderR(X, anchorOneIndex, anchorTwoIndex, anchorOneR, anchorTwoR, minChroma) {
@@ -375,164 +383,213 @@ export function computeCylinderR(X, anchorOneIndex, anchorTwoIndex, anchorOneR, 
     { index: anchorTwoIndex, value: anchorTwoR },
   ]);
 
+  const floor = computeChromaFloor(minChroma, [anchorOneR, anchorTwoR]);
+  const floored = base.map((v) => clampToFloor(v, floor));
   const exempt = new Set([anchorOneIndex, anchorTwoIndex]);
-  const floored = base.map((v, i) => (exempt.has(i) ? v : clampToFloor(v, minChroma)));
 
   const nativeD = Array.from({ length: X }, (_, i) => (i * 360) / X);
   return convexifyRing(nativeD, floored, exempt);
 }
 
+/** The lowest floor `minChroma` may ask for, unless an anchor is grayer still. */
+export const MIN_CHROMA_FLOOR = 0.01;
+
 /**
- * EXPERIMENTAL (see git branch): how far a Z-column's floor pin must be
- * raised above `requestedFloor` to keep the WHOLE column at or under
- * `ceiling`, for one D-index's hue.
+ * The chroma floor actually used: `minChroma`, kept within
+ * [MIN_CHROMA_FLOOR, the lower anchor's R]. A floor can never sit above
+ * either anchor -- that anchor's own column would then have to dip below
+ * the floor to reproduce it -- so a grayer anchor drags the floor down
+ * with it, even below MIN_CHROMA_FLOOR.
  *
- * computeCylinderRGrid's column solve (three pins: a shared floor value at
- * both ends, `equatorValue` at `equatorZIndex`) is a LINEAR system in the
- * pin values, so its solution is an AFFINE function of the shared floor f
- * for fixed equatorValue/equatorZIndex/numZLevels -- the whole f in [0, 1]
- * relationship is exactly a straight line between just two solves (f=0 and
- * f=1), not merely close to one, so no search/iteration is needed to find
- * the smallest floor that works.
+ * @param {number} minChroma  the requested floor
+ * @param {number[]} anchorRs  each anchor's own R
+ * @returns {number}
+ */
+export function computeChromaFloor(minChroma, anchorRs) {
+  return Math.min(Math.max(minChroma, MIN_CHROMA_FLOOR), ...anchorRs);
+}
+
+/**
+ * One side of a column's bump, normalized: 0 at the column's end, rising
+ * to 1 at the peak with zero slope there. This is a beam pinned at the end
+ * (zero curvature, a natural boundary) and held level at the peak -- the
+ * continuous form of what computeLineBendingDisplacements produces for a
+ * symmetric three-pin column -- so each side is the minimum-bending-energy
+ * curve between its end and the peak, and is strictly monotone.
+ */
+function halfBump(t) {
+  return 1.5 * t - 0.5 * t * t * t;
+}
+
+/** Inverse of halfBump on [0, 1]: the root of t^3 - 3t + 2n = 0 in [0, 1]. */
+function inverseHalfBump(n) {
+  return 2 * Math.cos((Math.acos(-n) + 4 * Math.PI) / 3);
+}
+
+/**
+ * Normalized height at Z-index k of a SYMMETRIC bump peaking at
+ * (fractional) peakZ, wide enough to reach 0 exactly at the column end
+ * farther from the peak. The nearer end is cut off partway down the same
+ * curve, so it sits above 0 whenever the peak is off-centre.
+ */
+function bumpShape(k, peakZ, last) {
+  const halfWidth = Math.max(peakZ, last - peakZ);
+  return halfBump((halfWidth - Math.abs(k - peakZ)) / halfWidth);
+}
+
+/**
+ * Where a column's chroma peaks, and how high, given the one point the
+ * column must pass through: `equatorValue` at `equatorZ` (an anchor's own
+ * chroma at its own shade, or a non-anchor hue's imputed equivalents).
  *
- * WHY THIS MATTERS: when equatorZIndex sits near either end of the stack
- * (an anchor picked at a very light or very dark lightness) with a high
- * equatorValue, the solve can ring well past equatorValue on the far side
- * of that pin before turning back -- the same overshoot minimum-
- * bending-energy splines are known for between two very differently-valued
- * pins that are close together (empirically: pinning equatorValue=1.0 one
- * step in from the end of a 10-level stack overshoots to ~2.0 before any
- * clamping). Left alone, every over-`ceiling` point gets clamped flat,
- * producing a visible PLATEAU instead of a smooth taper. Raising the floor
- * pin shrinks the height difference between the two near pins, which
- * shrinks the overshoot proportionally (again, exactly, not approximately,
- * since the system is linear) -- f=`ceiling` always brings the column
- * completely flat (all three pins equal -> zero curvature -> the unique
- * minimum-energy solution is the constant `ceiling`), so a floor that
- * works always exists at or below `ceiling`; this finds the SMALLEST one,
- * so real floor only gets raised as much as this specific anchor actually
- * demands -- a muted, centered anchor pair needs no boost at all.
+ * The column is a symmetric bump around `peakZ`, rising monotonically
+ * from `floor` to `peakValue` (see halfBump and bumpShape). Only the
+ * column end farther from the peak reaches the floor; an off-centre peak
+ * leaves the nearer end partway up the same curve, rather than squeezing
+ * that side into a steeper drop. The peak moves in three phases as
+ * equatorValue rises:
+ *
+ *   1. The peak sits at the middle of the column, and peakValue is
+ *      whatever makes the bump pass through equatorValue at equatorZ.
+ *   2. Once that would push peakValue past 1 (the gamut ceiling), the
+ *      peak is capped at 1 and slides from the middle toward equatorZ
+ *      until the bump passes through equatorValue again.
+ *   3. When equatorValue is 1, the peak has reached equatorZ itself.
+ *
+ * Both are continuous in equatorValue and equatorZ, so neighbouring hues
+ * with nearby inputs get nearby columns. Because the peak is never higher
+ * than 1 and each side is monotone, no column ever overshoots the ceiling
+ * or has to be clipped into a plateau -- the failure of the earlier
+ * three-pin bending solve, which kept rising past an off-centre pin.
  *
  * @param {number} numZLevels
- * @param {number} equatorValue  the interior pin (that hue's ring chroma)
- * @param {number} equatorZIndex  where the interior pin sits, 0..numZLevels-1
- * @param {number} requestedFloor  the user's minChroma; never returned lower
- *   than this even when no correction is needed
- * @param {number} [ceiling=1]  the gamut boundary in relative-chroma terms
- * @returns {{floor: number, maxedOut: boolean}} floor: the pin value to
- *   actually use (>= requestedFloor, <= ceiling); maxedOut: true if it had
- *   to be raised above requestedFloor to keep this column in gamut.
+ * @param {number} equatorZ  where the column must hit equatorValue, in
+ *   [0, numZLevels-1]; may be fractional
+ * @param {number} equatorValue  in [floor, 1]
+ * @param {number} floor
+ * @returns {{peakZ: number, peakValue: number}}
  */
-export function computeAdaptiveChromaFloor(numZLevels, equatorValue, equatorZIndex, requestedFloor, ceiling = 1) {
-  const pinsAt = (f) => [
-    { index: 0, value: f },
-    { index: numZLevels - 1, value: f },
-    { index: equatorZIndex, value: equatorValue },
-  ];
-  const col0 = computeLineBendingDisplacements(numZLevels, pinsAt(0));
-  const col1 = computeLineBendingDisplacements(numZLevels, pinsAt(1));
-
-  let neededFloor = requestedFloor;
-  for (let k = 0; k < numZLevels; k++) {
-    const slope = col1[k] - col0[k];
-    // Only a NEGATIVE slope means raising f brings this point DOWN toward
-    // the ceiling; a flat or positive slope means f can't help here (and
-    // in practice never needs to -- see doc above).
-    if (slope >= 0) continue;
-    const f = (ceiling - col0[k]) / slope;
-    if (f > neededFloor) neededFloor = f;
+export function computeColumnPeak(numZLevels, equatorZ, equatorValue, floor) {
+  const last = numZLevels - 1;
+  const mid = last / 2;
+  if (!(equatorZ >= 0 && equatorZ <= last)) {
+    throw new Error(`equatorZ must sit inside the column [0, ${last}]; got ${equatorZ}.`);
   }
-  neededFloor = Math.min(neededFloor, ceiling);
-  return { floor: neededFloor, maxedOut: neededFloor > requestedFloor };
+  if (floor >= 1 || equatorValue <= floor) return { peakZ: mid, peakValue: floor };
+
+  const atMid = bumpShape(equatorZ, mid, last);
+  const needed = Math.min((equatorValue - floor) / (1 - floor), 1);
+  if (needed <= atMid) {
+    return { peakZ: mid, peakValue: floor + (equatorValue - floor) / atMid };
+  }
+  // Find peakZ (between mid and equatorZ) where bumpShape(equatorZ) ===
+  // needed, i.e. |equatorZ - peakZ| = halfWidth * (1 - t), with the
+  // half-width set by the end on the far side of the middle.
+  const t = inverseHalfBump(needed);
+  const peakZ = equatorZ > mid ? equatorZ / (2 - t) : (equatorZ + last * (1 - t)) / (2 - t);
+  return { peakZ, peakValue: 1 };
+}
+
+/**
+ * Impute each hue's equatorZ around the D ring, between the two anchor
+ * columns' own Z-indices, with the same circular bending solver the D
+ * axis and R ring use -- so the shade each hue's column has to "pass
+ * through" grades from one anchor's shade to the other's instead of
+ * jumping. Kept within the two anchors' span (the solve can ring past
+ * either pin) and fractional (computeColumnPeak is continuous in it).
+ *
+ * With one shared anchor column or a ring too small for the circular
+ * stencil (X < 5), there's nothing to impute between: every non-anchor
+ * column uses the anchors' midpoint.
+ *
+ * @param {number} X
+ * @param {number[]} anchorIndices   [anchorOneIndex, anchorTwoIndex]
+ * @param {number[]} anchorZIndices  [anchorOneZIndex, anchorTwoZIndex]
+ * @returns {number[]} one equatorZ per D-index, exact at the anchors
+ */
+export function computeEquatorZRing(X, anchorIndices, anchorZIndices) {
+  const [indexOne, indexTwo] = anchorIndices;
+  const [zOne, zTwo] = anchorZIndices;
+  const lowZ = Math.min(zOne, zTwo);
+  const highZ = Math.max(zOne, zTwo);
+
+  const ring = indexOne === indexTwo || X < 5
+    ? new Array(X).fill((zOne + zTwo) / 2)
+    : computeCircularBendingDisplacements(X, [
+        { index: indexOne, value: zOne },
+        { index: indexTwo, value: zTwo },
+      ]);
+  const equatorZ = ring.map((z) => Math.min(Math.max(z, lowZ), highZ));
+  equatorZ[indexTwo] = zTwo;
+  equatorZ[indexOne] = zOne; // anchorOne wins a shared slot
+  return equatorZ;
 }
 
 /**
  * Taper R with Z, per D-index ("shade column"), so the cylinder is a
- * little egg-shaped: chroma bulges out to each hue's ring value (from
- * computeCylinderR) somewhere in the middle of the column and reduces back
- * down toward `minChroma` at the very top and bottom, instead of staying
- * constant all the way up/down every column.
+ * little egg-shaped: chroma bulges out somewhere in the middle of each
+ * column and reduces back down toward the floor at the top and bottom
+ * (reaching it at whichever end is farther from the peak).
  *
- * For each D-index i, this runs its OWN 3-pin open curve along Z (the same
- * curve-model shape line.html/curve.html use): First (zIndex 0) and Last
- * (zIndex numZLevels-1) pinned to `minChroma`, with a single interior
- * anchor pinned to ringR[i] -- exactly anchorOne.r, anchorTwo.r, or the
- * imputed ring value between them, whichever belongs to that hue.
+ * Each column passes through its hue's ring value (from computeCylinderR)
+ * at its equatorZ (from computeEquatorZRing). For the two anchor columns
+ * that's the anchor's own R at the anchor's own Z-index, which is what
+ * makes those two points reproduce the picked colors exactly. Where the
+ * column peaks, and how high, is computeColumnPeak's three-phase rule.
  *
- * WHERE the interior anchor sits (which Z-index) matters for one important
- * reason: the two D-indices that ARE anchorOne/anchorTwo must use THEIR
- * OWN anchor's Z-index, not some generic middle one -- otherwise the point
- * that's supposed to exactly reproduce an anchor's picked color would land
- * on the tapered curve's value at the wrong height instead of the anchor's
- * actual chroma, breaking color fidelity for the very swatch you picked.
- * Every OTHER column (not an anchor's own hue) uses the midpoint between
- * the two anchors' Z-indices as a representative "equator."
- *
- * @param {number[]} ringR  length-X result of computeCylinderR (one value
- *   per D-index -- the "equatorial" chroma for that hue)
+ * @param {number[]} ringR  length-X result of computeCylinderR
  * @param {number} numZLevels
- * @param {number} minChroma  requested floor, pinned at the top and bottom
- *   of every column -- EXPERIMENTAL: a column may pin higher than this if
- *   computeAdaptiveChromaFloor finds that's needed to stay in gamut; see
- *   its doc
+ * @param {number} minChroma  requested floor (see computeChromaFloor)
  * @param {number[]} anchorIndices  [anchorOneIndex, anchorTwoIndex]
  * @param {number[]} anchorZIndices [anchorOneZIndex, anchorTwoZIndex]
- * @returns {{RGrid: number[][], maxedOutColumns: boolean[]}} RGrid[zIndex][dIndex]
- *   is the final R for every point; maxedOutColumns[dIndex] is true where
- *   that column's floor had to be raised above `minChroma` (see
- *   computeAdaptiveChromaFloor)
+ * @returns {number[][]} RGrid[zIndex][dIndex]
  */
 export function computeCylinderRGrid(ringR, numZLevels, minChroma, anchorIndices, anchorZIndices) {
   const X = ringR.length;
-  let sharedEquator = Math.round((anchorZIndices[0] + anchorZIndices[1]) / 2);
-  sharedEquator = Math.min(Math.max(sharedEquator, 1), numZLevels - 2);
+  const last = numZLevels - 1;
+  const floor = computeChromaFloor(minChroma, anchorIndices.map((i) => ringR[i]));
+  const equatorZ = computeEquatorZRing(X, anchorIndices, anchorZIndices);
   const RGrid = Array.from({ length: numZLevels }, () => new Array(X));
-  const maxedOutColumns = new Array(X).fill(false);
 
   for (let i = 0; i < X; i++) {
-    const isAnchorColumn = i === anchorIndices[0] || i === anchorIndices[1];
-    let equatorZIndex = sharedEquator;
-    if (i === anchorIndices[0]) equatorZIndex = anchorZIndices[0];
-    else if (i === anchorIndices[1]) equatorZIndex = anchorZIndices[1];
-
-    // A non-anchor column's own interior pin is floored to minChroma here
-    // too (not just its solved free points below) -- computeCylinderR
-    // already guarantees ringR[i] >= minChroma away from its two anchors,
-    // but re-asserting it at the one place it becomes a pin keeps this
-    // function correct on its own, without silently depending on that
-    // upstream guarantee holding.
-    const equatorValue = isAnchorColumn ? ringR[i] : Math.max(ringR[i], minChroma);
-    const { floor, maxedOut } = computeAdaptiveChromaFloor(numZLevels, equatorValue, equatorZIndex, minChroma);
-    maxedOutColumns[i] = maxedOut;
-    const pins = [
-      { index: 0, value: floor },
-      { index: numZLevels - 1, value: floor },
-      { index: equatorZIndex, value: equatorValue },
-    ];
-    const pinnedZ = new Set([0, numZLevels - 1, equatorZIndex]);
-    const column = computeLineBendingDisplacements(numZLevels, pins);
+    const equatorValue = Math.min(Math.max(ringR[i], floor), 1);
+    const { peakZ, peakValue } = computeColumnPeak(numZLevels, equatorZ[i], equatorValue, floor);
     for (let k = 0; k < numZLevels; k++) {
-      if (pinnedZ.has(k)) {
-        // An anchor's own EQUATOR point is the one place its exact chroma
-        // may legitimately sit below minChroma (see computeCylinderR's doc)
-        // -- reproducing the picked color exactly always wins over the
-        // floor, but only at this single pinned position.
-        RGrid[k][i] = column[k];
-      } else {
-        // Every other free point is floored to this column's (possibly
-        // raised) floor, including free points elsewhere in an anchor's
-        // OWN column: being "an anchor column" only excuses the one pinned
-        // equator point above, not the whole column. Left unfloored, a
-        // minimum-bending-energy curve reacting to that one low pin can
-        // undershoot toward zero at other Z-levels in the same column --
-        // e.g. a faint anchor's hue showing up as an unintended near-zero
-        // dip on a completely different shade row's ring, nowhere near
-        // that anchor's own position.
-        RGrid[k][i] = clampToFloor(column[k], floor);
-      }
+      RGrid[k][i] = floor + (peakValue - floor) * bumpShape(k, peakZ, last);
     }
   }
-  return { RGrid, maxedOutColumns };
+  // Exact against round-off in computeColumnPeak's inversion.
+  anchorIndices.forEach((i, a) => {
+    RGrid[anchorZIndices[a]][i] = ringR[i];
+  });
+  return RGrid;
+}
+
+/**
+ * The lightness baseline the Z-level solve deforms, as a fraction of the
+ * stack's span: a blend of the identity (evenly spaced shades) and
+ * smoothstep (shades crowded toward both ends, spread in the middle),
+ * symmetric about 0.5. `contrast` 0 is evenly spaced; 1 is full smoothstep,
+ * whose slope at both ends is 0 -- the end shades nearly merge there.
+ *
+ * @param {number} t  position along the stack, 0..1
+ * @param {number} contrast  0..1
+ * @returns {number} 0..1, strictly increasing in t for contrast < 1
+ */
+export function contrastCurve(t, contrast) {
+  return (1 - contrast) * t + contrast * t * t * (3 - 2 * t);
+}
+
+/** Inverse of contrastCurve in t (it's monotone, so bisection is exact enough). */
+function inverseContrastCurve(y, contrast) {
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (contrastCurve(mid, contrast) < y) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
 }
 
 /**
@@ -540,24 +597,59 @@ export function computeCylinderRGrid(ringR, numZLevels, minChroma, anchorIndices
  * with anchorOne.Z and anchorTwo.Z pinned exactly among them (identity
  * assigned by sorted value, per line.html's model). See module doc.
  *
+ * With `contrast` > 0, the whole line model runs in "curve space":
+ * every pin is mapped through the inverse of contrastCurve, the slots and
+ * the bending solve are computed there exactly as before, and every
+ * resulting level is mapped back through contrastCurve. Since the curve
+ * is flatter near both ends, shades evenly spread in curve space crowd
+ * toward black and white in lightness, and spread out mid-stack. Two
+ * consequences:
+ *
+ *  1. Slots are apportioned by curve-space gaps, so an anchor near the
+ *     middle claims a slot nearer the middle -- an anchor may change
+ *     Z-index as contrast changes, which moves the ramp in a visible step.
+ *  2. Pins map back to their exact lightness (the curve is invertible),
+ *     so both anchors and both ends still land exactly.
+ *
+ * At contrast 0 the curve is the identity, i.e. the plain line model.
+ *
  * @param {number} numZLevels
  * @param {number} anchorOneZ
  * @param {number} anchorTwoZ
  * @param {number} minL  pinned at whichever end of the sorted stack is lowest
  * @param {number} maxL  pinned at whichever end of the sorted stack is highest
+ * @param {number} [contrast=0]  0..1, see contrastCurve
  * @returns {{
  *   zLevels: number[],       // length numZLevels, ascending
  *   anchorOneZIndex: number, // which zLevels[] index equals anchorOneZ exactly
  *   anchorTwoZIndex: number, // which zLevels[] index equals anchorTwoZ exactly
  * }}
  */
-export function computeCylinderZLevels(numZLevels, anchorOneZ, anchorTwoZ, minL, maxL) {
+export function computeCylinderZLevels(numZLevels, anchorOneZ, anchorTwoZ, minL, maxL, contrast = 0) {
   const pinValues = [minL, anchorOneZ, anchorTwoZ, maxL];
-  const { sortedValues, indices, rankOf } = computeSortedPinPlacement(numZLevels, pinValues);
-  const pins = indices.map((idx, k) => ({ index: idx, position: sortedValues[k] }));
-  const { deformed } = computeLineDeformation(numZLevels, pins);
+  const low = Math.min(...pinValues);
+  const span = Math.max(...pinValues) - low || 1;
+  // At contrast 0 the curve is the identity; skipping it entirely keeps
+  // exact ties (e.g. an anchor equal to minL) from being broken by the
+  // inverse's round-off, so the result is bit-for-bit the plain line model.
+  const toCurveSpace = (z) => (contrast === 0 ? z : inverseContrastCurve((z - low) / span, contrast));
+  // Clamped before mapping back: contrastCurve is only monotone on [0, 1],
+  // and a bending solve can ring fractionally past its outermost pins.
+  const fromCurveSpace = (t) => (contrast === 0 ? t : low + span * contrastCurve(Math.min(Math.max(t, 0), 1), contrast));
+
+  const { sortedValues, indices, rankOf } = computeSortedPinPlacement(numZLevels, pinValues.map(toCurveSpace));
+  const { deformed } = computeLineDeformation(
+    numZLevels,
+    indices.map((idx, k) => ({ index: idx, position: sortedValues[k] })),
+  );
+  const zLevels = deformed.map(fromCurveSpace);
+  // Pins land exactly, not just to within the inverse's round-off.
+  const pinnedZ = pinValues.slice().sort((a, b) => a - b);
+  indices.forEach((idx, k) => {
+    zLevels[idx] = pinnedZ[k];
+  });
   return {
-    zLevels: deformed,
+    zLevels,
     anchorOneZIndex: indices[rankOf(1)],
     anchorTwoZIndex: indices[rankOf(2)],
   };
@@ -567,7 +659,7 @@ export function computeCylinderZLevels(numZLevels, anchorOneZ, anchorTwoZ, minL,
  * Build the full cylinder: numZLevels stacked copies of the X-point D ring,
  * with R tapered per column via computeCylinderRGrid (see its doc -- this
  * is what makes the cylinder a little egg-shaped: chroma reduces toward
- * `minChroma` as Z approaches the top/bottom of the stack instead of
+ * the floor as Z approaches the top/bottom of the stack instead of
  * staying constant all the way up/down). The two points that exactly match
  * an original anchor's full (D, Z, R) are flagged isAnchor.
  *
@@ -575,32 +667,29 @@ export function computeCylinderZLevels(numZLevels, anchorOneZ, anchorTwoZ, minL,
  * @param {number} numZLevels
  * @param {[{D:number,Z:number,R:number}, {D:number,Z:number,R:number}]} anchors
  *   exactly two anchors, [anchorOne, anchorTwo]
- * @param {number} minChroma  boundary value for both the D-ring seam (see
- *   computeCylinderR) and the top/bottom of every Z-column (see
- *   computeCylinderRGrid)
+ * @param {number} minChroma  requested chroma floor for the D ring and the
+ *   top/bottom of every Z-column; kept within [MIN_CHROMA_FLOOR, the lower
+ *   anchor's R] (see computeChromaFloor)
  * @param {number} minL  low end of the Z-level stack (see computeCylinderZLevels)
  * @param {number} maxL  high end of the Z-level stack (see computeCylinderZLevels)
+ * @param {number} [contrast=0]  0..1, biases shades toward both ends of the
+ *   Z-level stack (see computeCylinderZLevels)
  * @returns {{
  *   points: {dIndex:number, zIndex:number, D:number, Z:number, R:number, isAnchor:boolean, anchorPos:(number|null)}[],
  *   D: number[], R: number[][], zLevels: number[],
  *   anchorIndices: number[], anchorZIndices: number[],
- *   chromaMaxedOut: boolean, maxedOutColumns: boolean[],
  * }}
  */
-export function computeCylinderPoints(X, numZLevels, anchors, minChroma, minL, maxL) {
+export function computeCylinderPoints(X, numZLevels, anchors, minChroma, minL, maxL, contrast = 0) {
   if (anchors.length !== 2) {
     throw new Error('computeCylinderPoints requires exactly two anchors: [anchorOne, anchorTwo].');
   }
   const [anchorOne, anchorTwo] = anchors;
   const { D, anchorIndices } = computeCylinderD(X, anchors);
   const ringR = computeCylinderR(X, anchorIndices[0], anchorIndices[1], anchorOne.R, anchorTwo.R, minChroma);
-  const { zLevels, anchorOneZIndex, anchorTwoZIndex } = computeCylinderZLevels(numZLevels, anchorOne.Z, anchorTwo.Z, minL, maxL);
+  const { zLevels, anchorOneZIndex, anchorTwoZIndex } = computeCylinderZLevels(numZLevels, anchorOne.Z, anchorTwo.Z, minL, maxL, contrast);
   const anchorZIndices = [anchorOneZIndex, anchorTwoZIndex];
-  const { RGrid: R, maxedOutColumns } = computeCylinderRGrid(ringR, numZLevels, minChroma, anchorIndices, anchorZIndices);
-  // EXPERIMENTAL: surfaces computeAdaptiveChromaFloor's per-column
-  // corrections as one palette-wide flag, for a UI message like "minimum
-  // saturation was raised for some hues to keep them in gamut."
-  const chromaMaxedOut = maxedOutColumns.some(Boolean);
+  const R = computeCylinderRGrid(ringR, numZLevels, minChroma, anchorIndices, anchorZIndices);
 
   const points = [];
   for (let k = 0; k < numZLevels; k++) {
@@ -617,7 +706,7 @@ export function computeCylinderPoints(X, numZLevels, anchors, minChroma, minL, m
     }
   }
 
-  return { points, D, R, zLevels, anchorIndices, anchorZIndices, chromaMaxedOut, maxedOutColumns };
+  return { points, D, R, zLevels, anchorIndices, anchorZIndices };
 }
 
 /** Discrete bending energy E = sum (u[i+1] - 2u[i] + u[i-1])^2, circular. */

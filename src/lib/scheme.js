@@ -8,23 +8,43 @@ import { hexToOklch } from './oklch.js';
  * current Primary/Secondary hues correspond to.
  *
  * ---------------------------------------------------------------------------
- * ROLE ASSIGNMENT (greedy, in a fixed order -- order matters, since each
- * pick removes that hue from the pool the next pick draws from)
+ * ROLE ASSIGNMENT
  * ---------------------------------------------------------------------------
+ * The four HARMONY roles are fixed by wheel geometry, in slot (D-index)
+ * terms on the X-slot ring, with Primary and Secondary given:
+ *
  *   1. Primary   = anchorOne's D-ring index
  *   2. Secondary = anchorTwo's D-ring index
- *   3. Tip       = closest remaining hue to a reference GREEN
- *   4. Info      = closest remaining hue to a reference BLUE
- *   5. Warning   = closest remaining hue to a reference YELLOW
- *   6. Danger    = closest remaining hue to a reference RED
- *   (six hues remain at this point)
- *   7. Tertiary  = closest of the six remaining hues to Primary
- *   8. Accent    = farthest of the six remaining hues from Primary
+ *   3. Tertiary  = Secondary mirrored across the Primary axis
+ *                  (Primary - (Secondary - Primary), mod X)
+ *   4. Accent    = Primary's complement (Primary + X/2, mod X)
+ *
+ * That is exactly the scheme table below read as roles: in (1,4,7,10),
+ * position 10 is 4 mirrored across 1, and 7 is opposite 1. So Tertiary is
+ * only adjacent to Primary in the analagous scheme (1,2,7,12), and Accent
+ * is always the maximum-hue-contrast slot. The one degenerate case is
+ * complementary (Secondary exactly opposite Primary): the mirror of
+ * Secondary IS Secondary and so is the complement, so Tertiary/Accent
+ * fall back to the two quarter-turn slots (Primary +/- X/4), i.e. the
+ * pair completes a square.
+ *
+ * The four SEMANTIC roles are then picked greedily from the 8 slots left,
+ * in a fixed order (order matters, since each pick removes that hue from
+ * the pool the next pick draws from):
+ *
+ *   5. Tip       = closest remaining hue to a reference GREEN
+ *   6. Info      = closest remaining hue to a reference BLUE
+ *   7. Warning   = closest remaining hue to a reference YELLOW
+ *   8. Danger    = closest remaining hue to a reference RED
  *   (four hues are left over, unused by any role)
  *
- * "Closest"/"farthest" hue is measured as ordinary circular hue distance in
- * degrees (via circularDelta from hue-deform.js), not wheel-index steps --
- * "most green" is a continuous-hue notion, not a discrete-slot one. The
+ * Harmony roles win ties on purpose: the harmony is the point of the
+ * scheme, so a semantic role whose ideal slot is taken by e.g. Tertiary
+ * settles for the nearest free hue instead of displacing it.
+ *
+ * "Closest" hue is measured as ordinary circular hue distance in degrees
+ * (via circularDelta from hue-deform.js), not wheel-index steps -- "most
+ * green" is a continuous-hue notion, not a discrete-slot one. The
  * reference R/G/B hues are computed from the actual OKLCH conversion of
  * pure sRGB red/green/blue (oklch.js's hexToOklch), not eyeballed, so
  * they're exact for this project's own color math.
@@ -129,9 +149,23 @@ export function computeColorScheme(hues, anchorOneIndex, anchorTwoIndex) {
     throw new Error('computeColorScheme needs at least 8 hues to fill all 8 roles.');
   }
 
+  const mod = (k) => ((k % X) + X) % X;
+  const offset = anchorTwoIndex - anchorOneIndex;
+  let accentIndex = mod(anchorOneIndex + Math.floor(X / 2));
+  if (accentIndex === anchorTwoIndex) accentIndex = mod(anchorOneIndex + Math.ceil(X / 2)); // odd X only
+  let tertiaryIndex = mod(anchorOneIndex - offset);
+  if (tertiaryIndex === anchorTwoIndex || tertiaryIndex === accentIndex) {
+    // Complementary: Secondary is its own mirror and also the complement,
+    // so complete a square instead (see ROLE ASSIGNMENT above).
+    const quarter = Math.round(X / 4);
+    tertiaryIndex = mod(anchorOneIndex + quarter);
+    accentIndex = mod(anchorOneIndex - quarter);
+  }
+  const harmonyIndices = new Set([anchorOneIndex, anchorTwoIndex, tertiaryIndex, accentIndex]);
+
   const remaining = new Set();
   for (let i = 0; i < X; i++) {
-    if (i !== anchorOneIndex && i !== anchorTwoIndex) remaining.add(i);
+    if (!harmonyIndices.has(i)) remaining.add(i);
   }
 
   function pickClosestToReference(referenceHue) {
@@ -152,25 +186,6 @@ export function computeColorScheme(hues, anchorOneIndex, anchorTwoIndex) {
   const infoIndex = pickClosestToReference(REFERENCE_HUES.blue);
   const warningIndex = pickClosestToReference(REFERENCE_HUES.yellow);
   const dangerIndex = pickClosestToReference(REFERENCE_HUES.red);
-
-  const primaryHue = hues[anchorOneIndex];
-  let tertiaryIndex = -1;
-  let tertiaryDist = Infinity;
-  let accentIndex = -1;
-  let accentDist = -Infinity;
-  for (const i of remaining) {
-    const d = circularHueDistance(hues[i], primaryHue);
-    if (d < tertiaryDist) {
-      tertiaryDist = d;
-      tertiaryIndex = i;
-    }
-    if (d > accentDist) {
-      accentDist = d;
-      accentIndex = i;
-    }
-  }
-  remaining.delete(tertiaryIndex);
-  remaining.delete(accentIndex);
 
   const wheelDistance = wheelIndexDistance(anchorOneIndex, anchorTwoIndex, X);
   const schemeName = SCHEME_NAMES_BY_DISTANCE[wheelDistance] || 'custom';

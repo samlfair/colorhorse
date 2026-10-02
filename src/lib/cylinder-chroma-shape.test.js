@@ -20,21 +20,14 @@
  *    (computeCylinderR) and every Z-taper column (computeCylinderRGrid).
  *    An R value outside its physical range is always wrong.
  *
- *  - FLOOR (R >= minChroma): must hold everywhere EXCEPT at the two anchor
- *    positions (an anchor's own picked chroma can legitimately be lower
- *    than the floor the user separately set -- exact color reproduction
- *    always wins over the floor). `minChroma` is documented as the floor
- *    for the whole cylinder, not just the single seam/boundary point it
- *    happens to be pinned at exactly.
+ *  - FLOOR (R >= the effective floor, computeChromaFloor): must hold
+ *    everywhere, anchors included. The floor never sits above either
+ *    anchor's own chroma -- a grayer anchor pulls it down -- so exact
+ *    color reproduction never has to break it.
  *
  *  - UNIMODALITY (rises to a single peak, then falls -- the "convex ovoid"
- *    shape): only asserted for NON-ANCHOR Z-taper columns. Each such column
- *    is built from exactly 3 pins, all >= minChroma (both ends AT
- *    minChroma, interior floored to it too), so it should always bulge
- *    upward, never pinch. An anchor's OWN column is allowed to pinch
- *    (single valley) instead, if that anchor's chroma is below minChroma --
- *    that's the FLOOR exception above, expressed as a shape. The D-ring
- *    itself is not held to single-peak unimodality either: it has two
+ *    shape): asserted for every Z-taper column, anchor columns included.
+ *    The D-ring itself is not held to single-peak unimodality: it has two
  *    independently-placed anchor peaks, so a real dip between two
  *    differently-hued peaks is an expected feature (two bulges), not a
  *    furrow -- only its DOMAIN and FLOOR are checked.
@@ -46,6 +39,7 @@ import {
   computeCylinderR,
   computeCylinderRGrid,
   computeCylinderPoints,
+  computeChromaFloor,
 } from './cylinder-deform.js';
 import { computeLineBendingDisplacements } from './line-deform.js';
 
@@ -199,9 +193,8 @@ describe('cylinder-chroma-shape', () => {
 
     // ---------------------------------------------------------------------------
     // 2. The fix: computeCylinderR (the actual exported function) never leaves
-    //    its physical domain, and never drops below minChroma except exactly
-    //    at the two anchor pins, for the configs that broke above and across a
-    //    full sweep.
+    //    its physical domain, and never drops below the effective floor, for
+    //    the configs that broke above and across a full sweep.
     // ---------------------------------------------------------------------------
 
     {
@@ -210,8 +203,7 @@ describe('cylinder-chroma-shape', () => {
       assert(inDomain(R, 0, 1, TOL), `computeCylinderR stays within [0,1] for the adjacent-anchors repro case, got ${R.map((v) => v.toFixed(3))}`);
       assert(R.every((v) => v >= 0), 'no negative (hue-flipping) chroma anywhere in the ring');
       R.forEach((v, i) => {
-        if (i === 0 || i === 1) return; // the two anchor positions -- exempt from the floor
-        assert(v >= minChroma - TOL, `R[${i}]=${v.toFixed(3)} respects the minChroma floor (${minChroma}) away from the anchors`);
+        assert(v >= minChroma - TOL, `R[${i}]=${v.toFixed(3)} respects the minChroma floor (${minChroma})`);
       });
 
       const R2 = computeCylinderR(12, 0, 1, 0.3, 0.9, minChroma);
@@ -232,7 +224,8 @@ describe('cylinder-chroma-shape', () => {
                 total++;
                 const R = computeCylinderR(X, a1, a2, r1, r2, mc);
                 if (!inDomain(R, 0, 1, TOL)) domainViolations++;
-                const floorBroken = R.some((v, i) => i !== a1 && i !== a2 && v < mc - TOL);
+                const floor = computeChromaFloor(mc, [r1, r2]);
+                const floorBroken = R.some((v) => v < floor - TOL);
                 if (floorBroken) floorViolations++;
               }
             }
@@ -240,65 +233,40 @@ describe('cylinder-chroma-shape', () => {
         }
       }
       assert(domainViolations === 0, `computeCylinderR stays within [0,1] across every anchor placement and value combo tried (${domainViolations}/${total} violated)`);
-      assert(floorViolations === 0, `computeCylinderR never drops below minChroma away from the two anchor positions (${floorViolations}/${total} violated)`);
+      assert(floorViolations === 0, `computeCylinderR never drops below the effective floor (${floorViolations}/${total} violated)`);
       console.log(`  (info) domain+floor-checked ${total} ring configurations, 0 violations post-fix`);
     }
 
     // ---------------------------------------------------------------------------
-    // 3. computeCylinderRGrid: the "convex ovoid" property. Each NON-ANCHOR
-    //    column must be (a) within [minChroma, 1] and (b) unimodal -- a single
-    //    smooth bulge, no furrow -- across every equator position (including
-    //    worst-case near-boundary placements) and a wide range of ring/min
-    //    values. An ANCHOR column is only held to the [0,1] domain (it may
-    //    legitimately pinch if that anchor's chroma is below minChroma).
+    // 3. computeCylinderRGrid: the "convex ovoid" property. Every column must
+    //    be (a) within [floor, 1] and (b) unimodal -- a single smooth bulge,
+    //    no furrow -- across every equator position (including worst-case
+    //    near-boundary placements) and a wide range of ring/min values.
     // ---------------------------------------------------------------------------
 
     {
-      // The worst-case overshoot scenario found by hand: the equator (an
-      // anchor's own Z-index) sitting right next to a boundary. Confirm the
-      // RAW solve overshoots past the ring value substantially (documenting
-      // why a taper this close to an edge is inherently aggressive)...
+      // The worst-case overshoot scenario found by hand for the earlier
+      // three-pin column solve: the equator (an anchor's own Z-index) sitting
+      // right next to a boundary. The RAW solve overshoots past 1...
       const raw = rawColumn(10, 0.2, 0.7, 1);
-      assert(Math.max(...raw) > 1, `sanity check: an equator adjacent to the boundary overshoots the ring value substantially without clamping (peak ${Math.max(...raw).toFixed(3)})`);
-      // ...but even unclamped, this particular shape is still unimodal (one
-      // bulge, just an exaggerated one).
-      assert(isUnimodal(raw, TOL), 'even the extreme near-boundary-equator column is unimodal before clamping (overshoot, not a furrow)');
+      assert(Math.max(...raw) > 1, `sanity check: an equator adjacent to the boundary overshoots the ring value substantially in the old three-pin solve (peak ${Math.max(...raw).toFixed(3)})`);
+      // ...whereas the current model stays within [floor, 1] for the same inputs.
+      const col = computeCylinderRGrid([0.7, 0.7, 0.7, 0.7, 0.7], 10, 0.2, [0, 1], [1, 1]).map((row) => row[2]);
+      assert(inDomain(col, 0.2, 1, TOL) && isUnimodal(col, TOL), `the same near-boundary column stays a single bulge within [0.2, 1], got ${col.map((v) => v.toFixed(3))}`);
 
-      // A DIFFERENT raw case -- ring value BELOW minChroma at a near-boundary
-      // equator -- genuinely pinches (a real single valley, since the interior
-      // pin is lower than both ends): this is the anchor-column exception, not
-      // a bug, and must stay a smooth single dip (still "unimodal" in the
-      // valley sense: negate it and it passes the same peak test).
-      const pinchRaw = rawColumn(10, 0.2, 0.05, 1);
-      assert(isUnimodal(pinchRaw.map((v) => -v), TOL), 'a ring value below minChroma produces one smooth valley, not multiple wiggles, even unclamped');
-
-      // As a NON-ANCHOR column (floored to minChroma), the same inputs must no
-      // longer pinch below the floor at all -- the floor turns the valley into
-      // a flat shelf at minChroma, still a single bulge shape overall. (dIndex
-      // 0 is the column under test; the "anchor" for this synthetic call sits
-      // at dIndex 1, so column 0 is exercised as a non-anchor column.)
-      const nonAnchorCol = computeCylinderRGrid([0.05, 0.05], 10, 0.2, [1, 1], [1, 1]).RGrid.map((row) => row[0]);
-      assert(inDomain(nonAnchorCol, 0.2, 1, TOL), `a non-anchor column never drops below minChroma even when its ring value would want to, got ${nonAnchorCol.map((v) => v.toFixed(3))}`);
-      assert(isUnimodal(nonAnchorCol, TOL), 'a non-anchor column stays a single bulge (no furrow) once floored');
-
-      // As the ANCHOR's own column (dIndex 0 now IS the anchor), the pinch is
-      // allowed through (exact color reproduction), but must stay within
-      // [0,1] and remain a single smooth valley (not a furrow with extra
-      // wiggles).
-      const anchorCol = computeCylinderRGrid([0.05, 0.05], 10, 0.2, [0, 0], [1, 1]).RGrid.map((row) => row[0]);
-      assertAnchorColumnClean(anchorCol);
-    }
-
-    function assertAnchorColumnClean(col) {
-      assert(inDomain(col, 0, 1, TOL), `an anchor column stays within [0,1] even when pinching below minChroma, got ${col.map((v) => v.toFixed(3))}`);
-      assert(isUnimodal(col, TOL) || isUnimodal(col.map((v) => -v), TOL), `an anchor column is a single smooth bulge or valley, never both (a real furrow), got ${col.map((v) => v.toFixed(3))}`);
+      // An anchor grayer than the requested floor pulls the floor down to
+      // its own chroma instead of pinching its column below the floor.
+      const grayGrid = computeCylinderRGrid([0.05, 0.05], 10, 0.2, [0, 1], [1, 1]);
+      for (const i of [0, 1]) {
+        const grayCol = grayGrid.map((row) => row[i]);
+        assert(inDomain(grayCol, 0.05, 0.05, TOL), `with both anchors at 0.05, the floor drops to 0.05 and column ${i} is flat there, got ${grayCol.map((v) => v.toFixed(3))}`);
+      }
     }
 
     {
-      // Full sweep: every equator position, a range of ring values (including
-      // ones below/above minChroma, and minChroma itself at both extremes),
-      // checked as a NON-ANCHOR column (dIndex 0, anchors elsewhere) for
-      // domain+floor AND unimodality (no furrow) together.
+      // Full sweep: every equator position and a range of ring values and
+      // requested floors, checked on a non-anchor column (dIndex 0) AND an
+      // anchor column (dIndex 5), for floor+domain AND unimodality together.
       const numZLevels = 10;
       const ringVals = [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1];
       const minChromas = [0, 0.2, 0.5];
@@ -307,30 +275,31 @@ describe('cylinder-chroma-shape', () => {
       for (let eq = 1; eq <= numZLevels - 2; eq++) {
         for (const ringVal of ringVals) {
           for (const mc of minChromas) {
-            total++;
-            // dIndex 0 is the column under test; anchors are placed at
-            // dIndex 5/6 so column 0 is always a NON-anchor column.
-            const { RGrid } = computeCylinderRGrid([ringVal, ringVal, ringVal, ringVal, ringVal, ringVal, ringVal], numZLevels, mc, [5, 6], [eq, eq]);
-            const col = RGrid.map((row) => row[0]);
-            if (!inDomain(col, mc, 1, TOL)) boundsViolations++;
-            if (!isUnimodal(col, TOL)) {
-              furrows++;
-              if (furrowExamples.length < 3) furrowExamples.push({ eq, ringVal, mc, col, dips: findFurrows(col, TOL, false) });
+            const floor = computeChromaFloor(mc, [ringVal, ringVal]);
+            const RGrid = computeCylinderRGrid([ringVal, ringVal, ringVal, ringVal, ringVal, ringVal, ringVal], numZLevels, mc, [5, 6], [eq, eq]);
+            for (const i of [0, 5]) {
+              total++;
+              const col = RGrid.map((row) => row[i]);
+              if (!inDomain(col, floor, 1, TOL)) boundsViolations++;
+              if (!isUnimodal(col, TOL)) {
+                furrows++;
+                if (furrowExamples.length < 3) furrowExamples.push({ eq, ringVal, mc, i, col, dips: findFurrows(col, TOL, false) });
+              }
             }
           }
         }
       }
-      assert(boundsViolations === 0, `every non-anchor Z-taper column stays within [minChroma,1] across the full equator/ring-value/minChroma sweep (${boundsViolations}/${total} violated)`);
-      assert(furrows === 0, `every non-anchor Z-taper column is unimodal (convex ovoid, no furrow) across the full sweep (${furrows}/${total} failed) -- examples: ${JSON.stringify(furrowExamples)}`);
-      console.log(`  (info) shape-checked ${total} non-anchor Z-taper columns, 0 bound violations, 0 furrows post-fix`);
+      assert(boundsViolations === 0, `every Z-taper column stays within [floor,1] across the full equator/ring-value/minChroma sweep (${boundsViolations}/${total} violated)`);
+      assert(furrows === 0, `every Z-taper column is unimodal (convex ovoid, no furrow) across the full sweep (${furrows}/${total} failed) -- examples: ${JSON.stringify(furrowExamples)}`);
+      console.log(`  (info) shape-checked ${total} Z-taper columns, 0 bound violations, 0 furrows`);
     }
 
     // ---------------------------------------------------------------------------
     // 4. End-to-end, through the full pipeline (computeCylinderPoints): for a
     //    battery of realistic anchor pairs (varying D, Z, and R together, the
-    //    way real color picks would), every point's R is in-domain, every
-    //    NON-anchor per-hue column (fixed dIndex, all 10 Z-levels) is unimodal
-    //    and >= minChroma, and every ANCHOR column is at worst a single valley.
+    //    way real color picks would), every point's R is in-domain, and every
+    //    per-hue column (fixed dIndex, all 10 Z-levels) is unimodal and at or
+    //    above the effective floor.
     // ---------------------------------------------------------------------------
 
     {
@@ -341,31 +310,24 @@ describe('cylinder-chroma-shape', () => {
         { a1: { D: 10, Z: 0.5, R: 1.0 }, a2: { D: 15, Z: 0.5, R: 0.05 }, minChroma: 0, minL: 0, maxL: 1 }, // near-coincident D, extreme R gap
         { a1: { D: 350, Z: 0.3, R: 0.7 }, a2: { D: 10, Z: 0.7, R: 0.6 }, minChroma: 0.3, minL: 0.1, maxL: 0.9 }, // wraps across 360, minChroma > 0 and narrower L band
         { a1: { D: 90, Z: 0.5, R: 0.5 }, a2: { D: 270, Z: 0.5, R: 0.5 }, minChroma: 0.2, minL: 0, maxL: 1 }, // opposite hues, equal R (baseline sanity)
-        { a1: { D: 5, Z: 0.5, R: 0.05 }, a2: { D: 200, Z: 0.5, R: 0.9 }, minChroma: 0.4, minL: 0, maxL: 1 }, // anchorOne's own chroma BELOW minChroma (the floor exception)
+        { a1: { D: 5, Z: 0.5, R: 0.05 }, a2: { D: 200, Z: 0.5, R: 0.9 }, minChroma: 0.4, minL: 0, maxL: 1 }, // anchorOne's own chroma below the requested floor, which drops to it
       ];
 
       for (const cfg of configs) {
-        const { R, D, anchorIndices } = computeCylinderPoints(X, numZLevels, [cfg.a1, cfg.a2], cfg.minChroma, cfg.minL, cfg.maxL);
+        const { R, D } = computeCylinderPoints(X, numZLevels, [cfg.a1, cfg.a2], cfg.minChroma, cfg.minL, cfg.maxL);
         const flat = R.flat();
         assert(inDomain(flat, 0, 1, TOL), `all R values in-domain for anchors D=${cfg.a1.D}/${cfg.a2.D}, got range [${Math.min(...flat).toFixed(3)}, ${Math.max(...flat).toFixed(3)}]`);
 
+        const floor = computeChromaFloor(cfg.minChroma, [cfg.a1.R, cfg.a2.R]);
         let anyBad = false;
         for (let i = 0; i < X; i++) {
           const col = R.map((row) => row[i]);
-          const isAnchorCol = i === anchorIndices[0] || i === anchorIndices[1];
-          if (isAnchorCol) {
-            if (!inDomain(col, 0, 1, TOL) || !(isUnimodal(col, TOL) || isUnimodal(col.map((v) => -v), TOL))) {
-              anyBad = true;
-              console.error(`  bad ANCHOR column at dIndex ${i} (D=${D[i].toFixed(1)}°): ${col.map((v) => v.toFixed(3))}`);
-            }
-          } else {
-            if (!inDomain(col, cfg.minChroma, 1, TOL) || !isUnimodal(col, TOL)) {
-              anyBad = true;
-              console.error(`  furrow at dIndex ${i} (D=${D[i].toFixed(1)}°) for anchors D=${cfg.a1.D}/${cfg.a2.D}: ${col.map((v) => v.toFixed(3))}, dips at ${findFurrows(col, TOL, false)}`);
-            }
+          if (!inDomain(col, floor, 1, TOL) || !isUnimodal(col, TOL)) {
+            anyBad = true;
+            console.error(`  furrow at dIndex ${i} (D=${D[i].toFixed(1)}°) for anchors D=${cfg.a1.D}/${cfg.a2.D}: ${col.map((v) => v.toFixed(3))}, dips at ${findFurrows(col, TOL, false)}`);
           }
         }
-        assert(!anyBad, `every hue column is well-shaped (convex ovoid, or a legitimate single valley at an anchor) for anchors D=${cfg.a1.D}/${cfg.a2.D}, R=${cfg.a1.R}/${cfg.a2.R}`);
+        assert(!anyBad, `every hue column is a convex ovoid at or above the floor for anchors D=${cfg.a1.D}/${cfg.a2.D}, R=${cfg.a1.R}/${cfg.a2.R}`);
       }
     }
 

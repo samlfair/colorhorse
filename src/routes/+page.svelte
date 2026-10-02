@@ -167,6 +167,7 @@
 	let a2Color = $state("#dddddd");
 	let minL = $state(0.1);
 	let maxL = $state(0.98);
+	let contrast = $state(0);
 	let minChroma = $state(0.2);
 	let azimuth = $state(30);
 	let elevation = $state(18);
@@ -178,6 +179,7 @@
 		a2Color: "#888888",
 		minL: 0.1,
 		maxL: 0.98,
+		contrast: 0,
 		minChroma: 0.2,
 		azimuth: 30,
 		elevation: 18,
@@ -199,6 +201,7 @@
 			a2Color: randomAnchorHex(),
 			minL: 0.1,
 			maxL: 0.98,
+			contrast: 0,
 			minChroma: 0.2,
 			azimuth: 30,
 			elevation: 18,
@@ -547,17 +550,17 @@
 	$effect(() => {
 		if (anchorsSeeded && maxL < lightestShadeFloor) maxL = lightestShadeFloor;
 	});
-	// Minimum Saturation is a floor applied to every non-anchor point (see
-	// cylinder-deform.js's computeCylinderR/computeCylinderRGrid), so it can
-	// never exceed the less-saturated anchor's own relative chroma (R) --
-	// otherwise that anchor's own neighborhood would get floored ABOVE the
-	// anchor's actual color, the same contradiction minL/maxL avoid above.
+	// Minimum Saturation is a floor applied to every point (see
+	// cylinder-deform.js's computeChromaFloor), so it can never exceed the
+	// less-saturated anchor's own relative chroma (R) -- otherwise that
+	// anchor's own column would have to dip below the floor to reproduce it,
+	// the same contradiction minL/maxL avoid above.
 	$effect(() => {
 		if (anchorsSeeded && minChroma > lowerChromaR) minChroma = lowerChromaR;
 	});
 
 	let cyl = $derived(
-		computeCylinderPoints(NUM_D, NUM_Z, anchors, minChroma, minL, maxL),
+		computeCylinderPoints(NUM_D, NUM_Z, anchors, minChroma, minL, maxL, contrast),
 	);
 
 	// Chroma radar rings: one ring per anchor's own shade (Z) level, all 12
@@ -590,7 +593,7 @@
 	// Computed the same way (min/max lightness pinned as the endpoints), so
 	// every value is always inside [minL, maxL] by construction.
 	let lineDemoLightnessValues = $derived(
-		computeCylinderZLevels(12, anchors[0].L, anchors[1].L, minL, maxL).zLevels,
+		computeCylinderZLevels(12, anchors[0].L, anchors[1].L, minL, maxL, contrast).zLevels,
 	);
 
 	let points = $derived(
@@ -1001,7 +1004,7 @@
 		<label>Minimum Saturation
 			<input
 				type="range"
-				min="0"
+				min="0.01"
 				max={minChromaSliderMax}
 				step="0.01"
 				bind:value={minChroma}
@@ -1053,6 +1056,15 @@
 				max="1"
 				step="0.001"
 				bind:value={maxL}
+			/>
+		</label>
+		<label>Contrast
+			<input
+				type="range"
+				min="0"
+				max="1"
+				step="0.01"
+				bind:value={contrast}
 			/>
 		</label>
 	</div>
@@ -1253,20 +1265,24 @@
 						bind:value={maxL}
 					/>
 				</label>
-				<label>Minimum Saturation
+				<label>Contrast
 					<input
 						type="range"
 						min="0"
+						max="1"
+						step="0.01"
+						bind:value={contrast}
+					/>
+				</label>
+				<label>Minimum Saturation
+					<input
+						type="range"
+						min="0.01"
 						max={minChromaSliderMax}
 						step="0.01"
 						bind:value={minChroma}
 					/>
 				</label>
-				{#if cyl.chromaMaxedOut}
-					<p class="chroma-maxed-note">
-						EXPERIMENTAL: one of your anchors is so vivid at its shade that we raised the saturation floor to keep the palette smooth — some colors are as saturated as this hue and lightness allow.
-					</p>
-				{/if}
 			</div>
 		</div>
 		{@render schemePalette()}
@@ -1675,12 +1691,6 @@
 	.controls .sliders {
 		display: flex;
 		flex-direction: column;
-	}
-
-	.chroma-maxed-note {
-		font-size: 0.8em;
-		color: var(--yellow);
-		margin: 0.5em 0 0;
 	}
 
 	input[type="range"] {

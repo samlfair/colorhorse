@@ -73,23 +73,26 @@ describe('scheme', () => {
       const { roles } = result;
       assert(roles.Primary === 0, 'Primary is anchorOneIndex');
       assert(roles.Secondary === 6, 'Secondary is anchorTwoIndex');
-      // Hand-verified by walking the greedy algorithm (see scheme.js test plan):
+      // Complementary is the degenerate harmony case: Secondary's mirror
+      // across Primary is Secondary itself, and so is Primary's complement,
+      // so Tertiary/Accent complete a square at Primary +/- 3 instead.
+      assert(roles.Tertiary === 3, `Tertiary falls back to index 3 (Primary + quarter turn) for complementary, got ${roles.Tertiary}`);
+      assert(roles.Accent === 9, `Accent falls back to index 9 (Primary - quarter turn) for complementary, got ${roles.Accent}`);
+      // Semantic roles are picked from the 8 slots the harmony left, hand-walked:
       // Tip (closest to green ref ~142.5) picks hue 150 (index 5).
       assert(roles.Tip === 5, `Tip picks index 5 (hue 150, closest to green), got ${roles.Tip}`);
-      // Info (closest to blue ref ~264.05) picks hue 270 (index 9).
-      assert(roles.Info === 9, `Info picks index 9 (hue 270, closest to blue), got ${roles.Info}`);
-      // Warning (closest to yellow ref ~90.4) picks hue 90 (index 3).
-      assert(roles.Warning === 3, `Warning picks index 3 (hue 90, closest to yellow), got ${roles.Warning}`);
+      // Info (closest to blue ref ~264.05): index 9 (hue 270) is taken by Accent,
+      // so the nearest free hue is 240 (index 8).
+      assert(roles.Info === 8, `Info picks index 8 (hue 240, nearest free hue to blue), got ${roles.Info}`);
+      // Warning (closest to yellow ref ~90.4): index 3 (hue 90) is taken by
+      // Tertiary; 60 and 120 are equidistant (30.4 vs 29.6) -> 120 (index 4).
+      assert(roles.Warning === 4, `Warning picks index 4 (hue 120, nearest free hue to yellow), got ${roles.Warning}`);
       // Danger (closest to red ref ~29.23) picks hue 30 (index 1).
       assert(roles.Danger === 1, `Danger picks index 1 (hue 30, closest to red), got ${roles.Danger}`);
-      // Remaining 6 at this point: indices 2,4,7,8,10,11 (hues 60,120,210,240,300,330).
-      // Distances from Primary (hue 0): 60,120,150,120,60,30 -> min=30 (index 11), max=150 (index 7).
-      assert(roles.Tertiary === 11, `Tertiary picks index 11 (hue 330, closest to Primary), got ${roles.Tertiary}`);
-      assert(roles.Accent === 7, `Accent picks index 7 (hue 210, farthest from Primary), got ${roles.Accent}`);
 
       assert(result.unusedIndices.length === 4, `4 indices are left unused, got ${result.unusedIndices.length}`);
       const unusedSet = new Set(result.unusedIndices);
-      assert(unusedSet.has(2) && unusedSet.has(4) && unusedSet.has(8) && unusedSet.has(10), `unused indices are exactly {2,4,8,10}, got ${result.unusedIndices.join(',')}`);
+      assert(unusedSet.has(2) && unusedSet.has(7) && unusedSet.has(10) && unusedSet.has(11), `unused indices are exactly {2,7,10,11}, got ${result.unusedIndices.join(',')}`);
 
       // All 8 roles are distinct indices.
       const roleIndices = Object.values(roles);
@@ -109,6 +112,30 @@ describe('scheme', () => {
         assert(result.schemeName === expected[dist], `distance ${dist} maps to scheme "${expected[dist]}", got "${result.schemeName}"`);
         assert(SCHEME_NAMES_BY_DISTANCE[dist] === expected[dist], `SCHEME_NAMES_BY_DISTANCE[${dist}] matches expected table`);
       }
+    }
+
+    // Tertiary/Accent are the harmony's other two slots: Tertiary mirrors
+    // Secondary across Primary, Accent is Primary's complement -- the scheme
+    // table's (1,s,7,mirror-of-s) read as roles. Checked for every
+    // non-degenerate distance, in both directions and from a non-zero Primary.
+    {
+      const hues = Array.from({ length: 12 }, (_, i) => i * 30);
+      for (const primary of [0, 5]) {
+        for (let dist = 1; dist <= 5; dist++) {
+          for (const dir of [1, -1]) {
+            const secondary = (primary + dir * dist + 12) % 12;
+            const { roles } = computeColorScheme(hues, primary, secondary);
+            const mirror = (primary - dir * dist + 12) % 12;
+            const complement = (primary + 6) % 12;
+            assert(roles.Tertiary === mirror, `Tertiary mirrors Secondary across Primary (P=${primary}, S=${secondary}): expected ${mirror}, got ${roles.Tertiary}`);
+            assert(roles.Accent === complement, `Accent is Primary's complement (P=${primary}, S=${secondary}): expected ${complement}, got ${roles.Accent}`);
+            assert(new Set(Object.values(roles)).size === 8, `all 8 roles distinct (P=${primary}, S=${secondary})`);
+          }
+        }
+      }
+      // Analagous is the only scheme where Tertiary sits next to Primary.
+      assert(wheelIndexDistance(computeColorScheme(hues, 0, 1).roles.Tertiary, 0, 12) === 1, 'analagous: Tertiary is adjacent to Primary');
+      assert(wheelIndexDistance(computeColorScheme(hues, 0, 3).roles.Tertiary, 0, 12) === 3, 'square: Tertiary is a quarter turn from Primary');
     }
 
     // Distance is symmetric and direction-independent -- placing Secondary on

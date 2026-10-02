@@ -525,11 +525,11 @@
 	$effect(() => {
 		if (anchorsSeeded && maxL < lightestShadeFloor) maxL = lightestShadeFloor;
 	});
-	// Minimum Saturation is a floor applied to every non-anchor point (see
-	// cylinder-deform.js's computeCylinderR/computeCylinderRGrid), so it can
-	// never exceed the less-saturated anchor's own relative chroma (R) --
-	// otherwise that anchor's own neighborhood would get floored ABOVE the
-	// anchor's actual color, the same contradiction minL/maxL avoid above.
+	// Minimum Saturation is a floor applied to every point (see
+	// cylinder-deform.js's computeChromaFloor), so it can never exceed the
+	// less-saturated anchor's own relative chroma (R) -- otherwise that
+	// anchor's own column would have to dip below the floor to reproduce it,
+	// the same contradiction minL/maxL avoid above.
 	$effect(() => {
 		if (anchorsSeeded && minChroma > lowerChromaR) minChroma = lowerChromaR;
 	});
