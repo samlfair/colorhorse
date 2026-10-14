@@ -2,7 +2,9 @@
 	// points: the palette's 12 D-ring hues, in degrees, already bending-energy
 	// relaxed by the real color-scheme computation -- this component only
 	// renders the ring, it doesn't recompute the hue deformation itself.
-	let { points = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330], chroma = 0.5, lightness = 0.5, anchorOneIndex = -1, anchorTwoIndex = -1 } = $props();
+	// points are angles on the palette's hue wheel; hues are the matching
+	// OKLCH hues for the fill colors (the same values on the RGB wheel).
+	let { points = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330], hues = points, chroma = 0.5, lightness = 0.5, anchorOneIndex = -1, anchorTwoIndex = -1 } = $props();
 
 	const ringCenter = { x: 200, y: 200 };
 	const ringRadius = 160;
@@ -57,7 +59,7 @@
 				cx={deformedHueCoordinate.x}
 				cy={deformedHueCoordinate.y}
 				r="6"
-				fill={`oklch(${lightness * 100}% ${chroma} ${points[pointIndex]})`}
+				fill={`oklch(${lightness * 100}% ${chroma} ${hues[pointIndex]})`}
 				stroke={isAnchor ? "black" : "var(--border)"}
 				stroke-width={isAnchor ? "2" : "1"}
 			/>

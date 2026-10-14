@@ -1,5 +1,5 @@
 <script module>
-  export { how, hero, intro, palette, hue, shades, lightness, chroma, fade, saturation, desaturation, sphere, combination, selection, programming, oklch, showcase, integrations, creator, credits }
+  export { how, hero, intro, palette, hue, wheel, shades, lightness, chroma, fade, saturation, desaturation, sphere, combination, selection, programming, oklch, showcase, integrations, creator, credits }
 </script>
 
 {#snippet hero()}
@@ -40,6 +40,12 @@ After choosing your colors, set the darkest, lightest, and most desaturated shad
 {#snippet hue()}
 
 In basic color palettes, the hues have a uniform spacing around the color wheel. In the real world, this is a very rare pattern. Instead of spacing the colors evenly, Color Horse creates a smooth gradual distribution, so some colors are slightly closer together and some are slightly farther apart. You can see how the spacing changes as you change the hues in your two input colors.
+
+{/snippet}
+
+{#snippet wheel()}
+
+By default, Color Horse spaces hues around the RGB color wheel that screens use. Switch to the RYB wheel, the red, yellow, and blue wheel painters use, to give more room to reds, oranges, and yellows and to pair complements the traditional way: red with green, yellow with violet. RYB palettes come out warmer and more old-fashioned. The RYB wheel comes from [RYBitten](https://github.com/meodai/RYBitten) by David Aerne.
 
 {/snippet}
 

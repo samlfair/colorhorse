@@ -26,12 +26,15 @@
 	 * -- CSS custom property inheritance still works exactly the same way,
 	 * it just doesn't escape the div.
 	 */
-	import { onMount } from "svelte";
+	import { onMount, onDestroy } from "svelte";
+	import { replaceState } from "$app/navigation";
 	import { computeCylinderPoints, computeCylinderZLevels } from "$lib/cylinder-deform.js";
 	import { hexToOklch, oklchToSrgb, maxInGamutChroma } from "$lib/oklch.js";
 	import { computeColorScheme } from "$lib/scheme.js";
 	import compileCSS from "$lib/compileCSS.js";
 	import { buildAseFile } from "$lib/ase.js";
+	import { encodeUrlState, decodeUrlState, URL_STATE_DEFAULTS } from "$lib/url-state.js";
+	import { getWheel } from "colorhorse";
 	import Logo from "$lib/Logo.svelte"
 	import CircleDemo from "$lib/CircleDemo.svelte"
 	import RadarDemo from "$lib/RadarDemo.svelte"
@@ -165,10 +168,14 @@
 	const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 	let a1Color = $state("#cccccc"); // neutral placeholder until onMount seeds a real random pair
 	let a2Color = $state("#dddddd");
-	let minL = $state(0.1);
-	let maxL = $state(0.98);
-	let contrast = $state(0);
-	let minChroma = $state(0.2);
+	let minL = $state(URL_STATE_DEFAULTS.dark);
+	let maxL = $state(URL_STATE_DEFAULTS.light);
+	let contrast = $state(URL_STATE_DEFAULTS.contrast);
+	let minChroma = $state(URL_STATE_DEFAULTS.sat);
+	let wheel = $state(URL_STATE_DEFAULTS.wheel); // "rgb" | "ryb"
+	// The ring is laid out in this wheel's angles (every D below);
+	// hueWheel.toHue turns an angle into an OKLCH hue for the color math.
+	let hueWheel = $derived(getWheel(wheel));
 	let azimuth = $state(30);
 	let elevation = $state(18);
 	let themeMode = $state("system"); // 'light' | 'dark' | 'system'
@@ -177,10 +184,10 @@
 	let DEFAULTS = {
 		a1Color: "#888888",
 		a2Color: "#888888",
-		minL: 0.1,
-		maxL: 0.98,
-		contrast: 0,
-		minChroma: 0.2,
+		minL: URL_STATE_DEFAULTS.dark,
+		maxL: URL_STATE_DEFAULTS.light,
+		contrast: URL_STATE_DEFAULTS.contrast,
+		minChroma: URL_STATE_DEFAULTS.sat,
 		azimuth: 30,
 		elevation: 18,
 	};
@@ -196,18 +203,24 @@
 	let anchorsSeeded = $state(false)
 
 	onMount(() => {
+		const settingsFromUrl = decodeUrlState(window.location.search);
 		DEFAULTS = {
-			a1Color: randomAnchorHex(),
-			a2Color: randomAnchorHex(),
-			minL: 0.1,
-			maxL: 0.98,
-			contrast: 0,
-			minChroma: 0.2,
+			a1Color: settingsFromUrl.colorOne ?? randomAnchorHex(),
+			a2Color: settingsFromUrl.colorTwo ?? randomAnchorHex(),
+			minL: URL_STATE_DEFAULTS.dark,
+			maxL: URL_STATE_DEFAULTS.light,
+			contrast: URL_STATE_DEFAULTS.contrast,
+			minChroma: URL_STATE_DEFAULTS.sat,
 			azimuth: 30,
 			elevation: 18,
 		};
 		a1Color = DEFAULTS.a1Color;
 		a2Color = DEFAULTS.a2Color;
+		minL = settingsFromUrl.dark ?? minL;
+		maxL = settingsFromUrl.light ?? maxL;
+		minChroma = settingsFromUrl.sat ?? minChroma;
+		contrast = settingsFromUrl.contrast ?? contrast;
+		wheel = settingsFromUrl.wheel ?? wheel;
 		colorized = true
 		anchorsSeeded = true
 
@@ -228,7 +241,7 @@
 		const { L, C, H } = hexToOklch(hex);
 		const maxC = maxInGamutChroma(L, H);
 		const R = maxC > 1e-9 ? Math.min(1, C / maxC) : 0;
-		return { D: H, Z: L, R, L, C };
+		return { D: hueWheel.toWheel(H), Z: L, R, L, C, H };
 	}
 
 	let hueOne = $derived(anchorFromColor(a1Color).D)
@@ -292,20 +305,65 @@
 		let first = anchorFromColor(a1Color)
 		let second = anchorFromColor(a2Color)
 
-		if(hueOneAdjusted) first.D = hueOne 
-		if(hueTwoAdjusted) second.D = hueTwo
+		if(hueOneAdjusted) first.H = hueWheel.toHue(hueOne)
+		if(hueTwoAdjusted) second.H = hueWheel.toHue(hueTwo)
 		if(lightnessOneAdjusted) first.L = lightnessOne
 		if(lightnessTwoAdjusted) second.L = lightnessTwo
-		if(chromaOneAdjusted) first.C = chromaOne * maxInGamutChroma(first.L, first.D)
-		if(chromaTwoAdjusted) second.C = chromaTwo * maxInGamutChroma(second.L, second.D)
+		if(chromaOneAdjusted) first.C = chromaOne * maxInGamutChroma(first.L, first.H)
+		if(chromaTwoAdjusted) second.C = chromaTwo * maxInGamutChroma(second.L, second.H)
 
-		const adjustedColorOne = anchorFromColor(oklchToSrgb(first.L, first.C, first.D).hex)
-		const adjustedColorTwo = anchorFromColor(oklchToSrgb(second.L, second.C, second.D).hex)
+		const adjustedHexOne = oklchToSrgb(first.L, first.C, first.H).hex
+		const adjustedHexTwo = oklchToSrgb(second.L, second.C, second.H).hex
 
-		return [adjustedColorOne, adjustedColorTwo]
+		return [
+			{ ...anchorFromColor(adjustedHexOne), hex: adjustedHexOne },
+			{ ...anchorFromColor(adjustedHexTwo), hex: adjustedHexTwo },
+		]
 	}
 	
 	let anchors = $derived(getAnchors(a1Color, a2Color, hueOne, hueTwo));
+
+	// Switching wheels re-derives the hue sliders from the input colors, which
+	// would drop a manual hue adjustment; carry it over to the new wheel.
+	function setWheel(nextWheel) {
+		const adjustedHueOne = hueWheel.toHue(hueOne);
+		const adjustedHueTwo = hueWheel.toHue(hueTwo);
+		wheel = nextWheel;
+		if (hueOneAdjusted) hueOne = hueWheel.toWheel(adjustedHueOne);
+		if (hueTwoAdjusted) hueTwo = hueWheel.toWheel(adjustedHueTwo);
+	}
+
+	// The URL carries each anchor's EFFECTIVE color (after any hue/lightness/
+	// saturation override), so a link reproduces the palette without
+	// encoding the overrides themselves. Writes are throttled: Safari throws
+	// if a page calls replaceState ~100 times in 30s, which dragging a
+	// slider would otherwise do.
+	const URL_WRITE_INTERVAL_MS = 300;
+	let urlQuery = $derived(
+		encodeUrlState({
+			colorOne: anchors[0].hex,
+			colorTwo: anchors[1].hex,
+			dark: minL,
+			light: maxL,
+			sat: minChroma,
+			contrast,
+			wheel,
+		}),
+	);
+	let pendingUrlQuery = null;
+	let urlWriteTimer = null;
+	function writeUrlQuery() {
+		urlWriteTimer = null;
+		const nextSearch = pendingUrlQuery ? `?${pendingUrlQuery}` : "";
+		if (nextSearch === window.location.search) return;
+		replaceState(`${window.location.pathname}${nextSearch}${window.location.hash}`, {});
+	}
+	$effect(() => {
+		if (!anchorsSeeded) return;
+		pendingUrlQuery = urlQuery;
+		if (urlWriteTimer === null) urlWriteTimer = setTimeout(writeUrlQuery, URL_WRITE_INTERVAL_MS);
+	});
+	onDestroy(() => clearTimeout(urlWriteTimer));
 	let toggleDarkMode = $state(false)
 
 	let colorMode = $state("light")
@@ -596,10 +654,13 @@
 		computeCylinderZLevels(12, anchors[0].L, anchors[1].L, minL, maxL, contrast).zLevels,
 	);
 
+	// OKLCH hue of each ring slot (cyl.D holds wheel angles).
+	let ringHues = $derived(cyl.D.map(hueWheel.toHue));
+
 	let points = $derived(
 		cyl.points.map((p) => ({
 			...p,
-			color: oklchToSrgb(p.Z, p.R * maxInGamutChroma(p.Z, p.D), p.D),
+			color: oklchToSrgb(p.Z, p.R * maxInGamutChroma(p.Z, ringHues[p.dIndex]), ringHues[p.dIndex]),
 		})),
 	);
 
@@ -616,8 +677,8 @@
 		}).filter(a => a)
 	)
 
-	let anchorOneHueIndex = $derived(cyl.D.findIndex(p => anchors[0].D.toFixed(3) === p.toFixed(3)))
-	let anchorTwoHueIndex = $derived(cyl.D.findIndex(p => anchors[1].D.toFixed(3) === p.toFixed(3)))
+	let anchorOneHueIndex = $derived(cyl.anchorIndices[0])
+	let anchorTwoHueIndex = $derived(cyl.anchorIndices[1])
 
 	let anchorOneLightnessIndex = $derived(cyl.zLevels.findIndex(p => anchors[0].L.toFixed(3) === p.toFixed(3)))
 	let anchorTwoLightnessIndex = $derived(cyl.zLevels.findIndex(p => anchors[1].L.toFixed(3) === p.toFixed(3)))
@@ -650,7 +711,7 @@
 	});
 
 	let scheme = $derived(
-		computeColorScheme(cyl.D, cyl.anchorIndices[0], cyl.anchorIndices[1]),
+		computeColorScheme(ringHues, cyl.anchorIndices[0], cyl.anchorIndices[1]),
 	);
 
 
@@ -863,7 +924,12 @@
 	<title>Color Horse</title>
 	<meta property="og:description" content="The automatic color scheme generator" />
 	<meta property="og:image" content="/scheme-01.png" />
+	<meta property="og:description" content="The magic color scheme generator." />
 	<meta property="og:title" content="Color Horse" />
+	<link
+		rel="canonical"
+		href="https://color.horse/"
+	/>
 	<link rel="icon" href="/favicon.ico" type="image/x-icon" />
 	{@html headerStyles}
 </svelte:head>
@@ -1122,7 +1188,7 @@
 {#snippet circleDemo()}
 	<h2>Hue</h2>
 	{@render content.hue()}
-	<CircleDemo points={cyl.D} chroma={anchors[0].C} lightness={anchors[0].L} anchorOneIndex={anchorOneHueIndex} anchorTwoIndex={anchorTwoHueIndex} />
+	<CircleDemo points={cyl.D} hues={ringHues} chroma={anchors[0].C} lightness={anchors[0].L} anchorOneIndex={anchorOneHueIndex} anchorTwoIndex={anchorTwoHueIndex} />
 	<div class="circle controls">
 		<label>Primary Color Hue
 			<input type="range" min=0 max=360 bind:value={hueOne} oninput={() => hueOneAdjusted = true} />
@@ -1131,14 +1197,30 @@
 			<input type="range" min=0 max=360 bind:value={hueTwo} oninput={() => hueTwoAdjusted = true} />
 		</label>
 	</div>
+	{@render content.wheel()}
+	<div class="circle controls">
+		{@render wheelSelect()}
+	</div>
 	<button onclick={resetHue}>Reset</button>
+{/snippet}
+
+{#snippet wheelSelect()}
+	<label>Color Wheel
+		<select
+			value={wheel}
+			onchange={(event) => setWheel(event.currentTarget.value)}
+		>
+			<option value="rgb">RGB</option>
+			<option value="ryb">RYB</option>
+		</select>
+	</label>
 {/snippet}
 
 
 {#snippet radarDemo()}
 	<h2>Saturation</h2>
 	{@render content.saturation()}
-	<RadarDemo hueDegrees={cyl.D} rings={radarRings} />
+	<RadarDemo hueDegrees={cyl.D} hues={ringHues} rings={radarRings} />
 		<label>Primary color saturation
 			<input
 				type="range"
@@ -1283,6 +1365,7 @@
 						bind:value={minChroma}
 					/>
 				</label>
+				{@render wheelSelect()}
 			</div>
 		</div>
 		{@render schemePalette()}
@@ -1697,6 +1780,13 @@
 		box-sizing: border-box;
 		width: 100%;
 		accent-color: var(--ring);
+	}
+
+	select {
+		display: block;
+		box-sizing: border-box;
+		width: 100%;
+		margin-top: 0.4em;
 	}
 
 	input[type="color"] {

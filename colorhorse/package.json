@@ -1,7 +1,7 @@
 {
 	"name": "colorhorse",
-	"version": "0.3.1",
-	"description": "Generate a smoothly-graduated OKLCH color scheme (12 hues, named roles, multi-shade ramps) from two anchor colors.",
+	"version": "0.5.0",
+	"description": "Generate a graduated OKLCH color scheme from two anchor colors.",
 	"type": "module",
 	"main": "src/index.js",
 	"exports": {
@@ -24,6 +24,7 @@
 	],
 	"license": "MIT",
 	"devDependencies": {
+		"rybitten": "^1.3.0",
 		"vitest": "^4.1.11"
 	}
 }

@@ -12,6 +12,7 @@
 
 	let {
 		hueDegrees = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330],
+		hues = hueDegrees, // OKLCH hues for the fill colors; hueDegrees are wheel angles
 		rings = [{ chromaValues: [], lightness: 0.6, anchors: [] }],
 	} = $props();
 
@@ -44,8 +45,8 @@
 			const pointCoordinates = hueDegrees.map((hueDegree, pointIndex) => {
 				const chromaFraction = ring.chromaValues[pointIndex] ?? 0;
 				const coordinate = chromaToCoordinate(hueDegree, chromaFraction);
-				const gamutMaxChroma = maxInGamutChroma(ring.lightness, hueDegree);
-				const hex = oklchToSrgb(ring.lightness, chromaFraction * gamutMaxChroma, hueDegree).hex;
+				const gamutMaxChroma = maxInGamutChroma(ring.lightness, hues[pointIndex]);
+				const hex = oklchToSrgb(ring.lightness, chromaFraction * gamutMaxChroma, hues[pointIndex]).hex;
 				return {
 					...coordinate,
 					hex,
