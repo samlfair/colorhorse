@@ -2011,6 +2011,7 @@
 	button {
 		display: flex;
 		align-items: center;
+		justify-content: center;
 		gap: 1ch;
 		background: var(--background-button);
 		border: var(--border-button);
