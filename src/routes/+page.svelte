@@ -922,7 +922,6 @@
 
 <svelte:head>
 	<title>Color Horse</title>
-	<meta property="og:description" content="The automatic color scheme generator" />
 	<meta property="og:image" content="/scheme-01.png" />
 	<meta property="og:description" content="The magic color scheme generator." />
 	<meta property="og:title" content="Color Horse" />

@@ -837,7 +837,7 @@
 
 <svelte:head>
 	<title>Color Horse</title>
-	<meta property="og:description" content="The automatic color scheme generator" />
+	<meta property="og:description" content="The magic color scheme generator." />
 	<meta property="og:image" content="/palette.png" />
 	<meta property="og:title" content="Color Horse" />
 	<link rel="icon" href="/favicon.ico" type="image/x-icon" />
