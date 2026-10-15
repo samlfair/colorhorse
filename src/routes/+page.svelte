@@ -41,6 +41,7 @@
 	import LineDemo from "$lib/LineDemo.svelte"
 	import CurveDemo from "$lib/CurveDemo.svelte"
 	import Shuffle from "$lib/Shuffle.svelte"
+	import Swap from "$lib/Swap.svelte"
 	import Contrast from "$lib/Contrast.svelte"
 	import Copy from "$lib/Copy.svelte"
 	import Check from "$lib/Check.svelte"
@@ -325,6 +326,23 @@
 	}
 	
 	let anchors = $derived(getAnchors(a1Color, a2Color, hueOne, hueTwo));
+
+	// Swapping the inputs re-derives every slider from the new colors, so
+	// swap any manual adjustments along with them.
+	function swapColors() {
+		// One assignment, so every old value is read before any of them changes.
+		[
+			a1Color, a2Color,
+			hueOne, hueTwo, hueOneAdjusted, hueTwoAdjusted,
+			lightnessOne, lightnessTwo, lightnessOneAdjusted, lightnessTwoAdjusted,
+			chromaOne, chromaTwo, chromaOneAdjusted, chromaTwoAdjusted,
+		] = [
+			a2Color, a1Color,
+			hueTwo, hueOne, hueTwoAdjusted, hueOneAdjusted,
+			lightnessTwo, lightnessOne, lightnessTwoAdjusted, lightnessOneAdjusted,
+			chromaTwo, chromaOne, chromaTwoAdjusted, chromaOneAdjusted,
+		];
+	}
 
 	// Switching wheels re-derives the hue sliders from the input colors, which
 	// would drop a manual hue adjustment; carry it over to the new wheel.
@@ -1210,8 +1228,8 @@
 {#snippet gamutSelect()}
 	<label>Gamut
 		<select bind:value={gamut}>
-			<option value="srgb">sRGB</option>
-			<option value="print">Print</option>
+			<option value="srgb">Screen (sRGB)</option>
+			<option value="print">Print (FOGRA39)</option>
 		</select>
 	</label>
 {/snippet}
@@ -1336,13 +1354,19 @@
 						}}
 					/>
 				</label>
-				<button onclick={() => {
-					a1Color = randomAnchorHex()
-					a2Color = randomAnchorHex()
-				}}>
-					<Shuffle />
-					Shuffle
-				</button>
+				<div class="color-buttons">
+					<button onclick={() => {
+						a1Color = randomAnchorHex()
+						a2Color = randomAnchorHex()
+					}}>
+						<Shuffle />
+						Shuffle
+					</button>
+					<button onclick={swapColors}>
+						<Swap />
+						Swap
+					</button>
+				</div>
 			</div>
 			<div class="sliders">
 				<label>Darkest Shade
@@ -1765,6 +1789,15 @@
 		display: flex;
 		flex-direction: column;
 
+		.color-buttons {
+			display: flex;
+			gap: 0.5em;
+
+			button {
+				flex: 1;
+			}
+		}
+
 		button {
 			margin-top: 1em;
 			font-size: 0.8em;
@@ -1791,6 +1824,7 @@
 	.controls .sliders {
 		display: flex;
 		flex-direction: column;
+		gap: 0.5lh;
 	}
 
 	input[type="range"] {
