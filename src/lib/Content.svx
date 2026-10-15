@@ -216,6 +216,7 @@ The heading font is [Fraunces](https://undercase.xyz/fonts/fraunces) by Undercas
 		p {
 			--accent: var(--accent-09);
 			display: inline;
+			/*
 		  background: linear-gradient(
 		  	transparent calc(0.85em - 1ex),
 		  	var(--accent) calc(0.85em - 1ex),
@@ -231,15 +232,18 @@ The heading font is [Fraunces](https://undercase.xyz/fonts/fraunces) by Undercas
 		  );
 		  background-blend-mode: lighten;
 		  mix-blend-mode: darken;
-		  line-height: 1cap;
+		  */
+		  line-height: 0.6cap;
 		  border-radius: 3px;
 		  padding-inline: 1.5ch;
 		  box-decoration-break: clone;
 		  -webkit-box-decoration-break: clone;
 
 		  @media (prefers-color-scheme: dark) {
+		  /*
 		  	background-blend-mode: darken;
 		  	mix-blend-mode: lighten;
+		  	*/
 		  	--accent: var(--accent-03);
 		  }
 	  }
