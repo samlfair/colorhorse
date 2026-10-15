@@ -43,6 +43,14 @@ getScheme("#3366cc");
 // same as getScheme("#3366cc", "<#3366cc's hue + 45deg, same L/C>")
 ```
 
+Options tune the result. `wheel: "ryb"` spaces the hues around the painter's
+red-yellow-blue wheel for warmer, more traditional palettes, and
+`gamut: "print"` keeps every color printable in CMYK:
+
+```js
+getScheme("#3366cc", "#cc6633", { wheel: "ryb", gamut: "print", contrast: 0.4 });
+```
+
 ## API
 
 - **`getScheme(colorOne?, colorTwo?, options?)`** — role name → hex array
@@ -85,8 +93,8 @@ getScheme("#3366cc");
 - **`GAMUTS`**, **`getGamut(name)`**, **`maxInPrintChroma(L, H)`** — the
   gamut names, a gamut's chroma limit (`getGamut` returns
   `{ maxChroma(L, H) }` in OKLCH), and the print limit on its own.
-  `scripts/build-print-gamut-table.js` regenerates the print table from any
-  CMYK ICC profile.
+  `scripts/build-print-gamut-table.js` (in the repository, not the published
+  package) regenerates the print table from any CMYK ICC profile.
 
 ## Where this came from
 
