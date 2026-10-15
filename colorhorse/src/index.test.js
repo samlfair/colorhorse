@@ -5,7 +5,7 @@
  * scheme.test.js, ...); this only covers the shaping layer index.js adds
  * on top of them.
  */
-import { getScheme } from './index.js';
+import { getScheme, maxInPrintChroma } from './index.js';
 import { hexToOklch, oklchToSrgb } from './oklch.js';
 
 import { describe, it, expect } from 'vitest';
@@ -140,6 +140,52 @@ describe('colorhorse public API', () => {
 					threw = error instanceof RangeError;
 				}
 				assert(threw, `getScheme throws a RangeError for wheel ${JSON.stringify(badWheel)}`);
+			}
+		}
+
+		// ---------------------------------------------------------------------------
+		// gamut option: "srgb" is the default; "print" keeps every color inside
+		// the print gamut, moving out-of-gamut anchors to its edge.
+		// ---------------------------------------------------------------------------
+		{
+			// Hex rounding can push a color just past the boundary it was placed on.
+			const HEX_ROUNDING_CHROMA = 0.004;
+			function withinPrint(hex) {
+				const { L, C, H } = hexToOklch(hex);
+				return C <= maxInPrintChroma(L, H) + HEX_ROUNDING_CHROMA;
+			}
+
+			const plain = getScheme('#3366cc', '#cc6633');
+			assert(JSON.stringify(plain) === JSON.stringify(getScheme('#3366cc', '#cc6633', { gamut: 'srgb' })), 'gamut defaults to "srgb"');
+			assert(!Object.values(plain).flat().every(withinPrint), 'the sRGB palette has colors outside print (so the next checks mean something)');
+
+			const pairs = [['#3366cc', '#cc6633'], ['#0000ff', '#ff00ff'], ['#00ff00', '#e4572e'], ['#29335c', '#ffcc00']];
+			for (const [one, two] of pairs) {
+				for (const wheel of ['rgb', 'ryb']) {
+					const scheme = getScheme(one, two, { gamut: 'print', wheel, contrast: 0.5 });
+					const outside = Object.values(scheme).flat().filter((hex) => !withinPrint(hex));
+					assert(outside.length === 0, `print ${one}/${two} on ${wheel} stays in the print gamut (outside: ${outside.join(' ')})`);
+				}
+			}
+
+			const muted = ['#8a6a50', '#4f6b5e'];
+			assert(muted.every(withinPrint), 'the muted test anchors are printable');
+			const mutedScheme = getScheme(muted[0], muted[1], { gamut: 'print' });
+			assert(mutedScheme.primary.includes(muted[0]) && mutedScheme.secondary.includes(muted[1]), 'printable anchors still appear exactly');
+
+			const blue = getScheme('#0000ff', '#e4572e', { gamut: 'print' });
+			assert(!blue.primary.includes('#0000ff'), 'an unprintable anchor is not reproduced exactly');
+			const anchorHue = hexToOklch('#0000ff').H;
+			assert(blue.primary.some((hex) => Math.abs(hexToOklch(hex).H - anchorHue) < 3), 'but its hue survives, desaturated to the print edge');
+
+			for (const badGamut of ['cmyk', 'SRGB', '', null, 1]) {
+				let threw = false;
+				try {
+					getScheme('#3366cc', '#cc6633', { gamut: badGamut });
+				} catch (error) {
+					threw = error instanceof RangeError;
+				}
+				assert(threw, `getScheme throws a RangeError for gamut ${JSON.stringify(badGamut)}`);
 			}
 		}
 

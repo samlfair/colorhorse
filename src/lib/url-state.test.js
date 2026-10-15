@@ -21,13 +21,13 @@ describe("url-state", () => {
     // are lowercased.
     {
       const query = encodeUrlState(defaults);
-      assert(query === "a=e4572e&b=29335c&dark=0.1&light=0.98&sat=0.2&contrast=0&wheel=rgb", `default settings are all encoded, got "${query}"`);
+      assert(query === "a=e4572e&b=29335c&dark=0.1&light=0.98&sat=0.2&contrast=0&wheel=rgb&gamut=srgb", `default settings are all encoded, got "${query}"`);
     }
 
     // Values are rounded.
     {
       const query = encodeUrlState({ ...defaults, dark: 0.08004, light: 0.9612, sat: 0.151, contrast: 0.6 });
-      assert(query === "a=e4572e&b=29335c&dark=0.08&light=0.961&sat=0.15&contrast=0.6&wheel=rgb", `settings are encoded and rounded, got "${query}"`);
+      assert(query === "a=e4572e&b=29335c&dark=0.08&light=0.961&sat=0.15&contrast=0.6&wheel=rgb&gamut=srgb", `settings are encoded and rounded, got "${query}"`);
     }
 
     // A non-numeric setting is left out rather than written as "NaN".
@@ -38,7 +38,7 @@ describe("url-state", () => {
 
     // Round trip: decode(encode(settings)) gives the settings back.
     {
-      const settings = { colorOne: "#e4572e", colorTwo: "#29335c", dark: 0.05, light: 0.97, sat: 0.15, contrast: 0.6, wheel: "ryb" };
+      const settings = { colorOne: "#e4572e", colorTwo: "#29335c", dark: 0.05, light: 0.97, sat: 0.15, contrast: 0.6, wheel: "ryb", gamut: "print" };
       const decoded = decodeUrlState(`?${encodeUrlState(settings)}`);
       for (const [key, value] of Object.entries(settings)) {
         assert(decoded[key] === value, `round trip preserves ${key} (expected ${value}, got ${decoded[key]})`);
@@ -70,6 +70,9 @@ describe("url-state", () => {
       assert(decodeUrlState("wheel=RYB").wheel === "ryb", "wheel is case-insensitive");
       assert(!("wheel" in decodeUrlState("wheel=cmyk")), "an unknown wheel is ignored");
       assert(!encodeUrlState({ ...defaults, wheel: "cmyk" }).includes("wheel"), "an unknown wheel isn't encoded");
+      assert(decodeUrlState("gamut=Print").gamut === "print", "gamut is case-insensitive");
+      assert(!("gamut" in decodeUrlState("gamut=cmyk")), "an unknown gamut is ignored");
+      assert(!("gamut" in decodeUrlState("a=e4572e")), "a missing gamut is absent, so old links stay on sRGB");
     }
 
     expect(failed, failed + " assertion(s) failed -- see console output above for FAIL: details").toBe(0);

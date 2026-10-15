@@ -1,5 +1,5 @@
 <script module>
-  export { how, hero, intro, palette, hue, wheel, shades, lightness, chroma, fade, saturation, desaturation, sphere, combination, selection, programming, oklch, showcase, integrations, creator, credits }
+  export { how, hero, intro, palette, hue, wheel, shades, lightness, chroma, fade, saturation, gamut, desaturation, sphere, combination, selection, programming, oklch, showcase, integrations, creator, credits }
 </script>
 
 {#snippet hero()}
@@ -73,6 +73,12 @@ When we place our colors on a circle by hue, we can also represent their saturat
 {#snippet saturation()}
 
 As you'll see below, every shade in our palette has a different chroma. So if your two input colors have different shades, they won't exist in the same "chroma circle." Nonetheless, they are anchor points for the saturation of every other color in the palette. As you adjust their saturation, you'll see the rest of the palette shift.
+
+{/snippet}
+
+{#snippet gamut()}
+
+Screens can show more saturated colors than ink on paper. If your palette will be printed, set the gamut to Print. Color Horse then keeps every color within what standard offset printing on coated paper (FOGRA39) can reproduce, reshaping the whole palette rather than clipping individual colors. Vivid blues, violets, magentas, and greens change the most. If one of your input colors can't be printed, Color Horse uses the closest printable version.
 
 {/snippet}
 

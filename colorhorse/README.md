@@ -52,7 +52,7 @@ getScheme("#3366cc");
     smoothly relaxing 12 hues between two real hues. `colorTwo` is optional:
     omit it (with `colorOne` given) for the one-color fallback above; omit
     both for the built-in default pair.
-  - `options`: `{ minLightness = 0.1, maxLightness = 0.98, minChroma = 0.2, contrast = 0, shadeCount = 10, wheel = "rgb" }`.
+  - `options`: `{ minLightness = 0.1, maxLightness = 0.98, minChroma = 0.2, contrast = 0, shadeCount = 10, wheel = "rgb", gamut = "srgb" }`.
     Hue count is fixed at 12 -- the palette's internal harmony classification
     (square, analagous, tertiary, ...) is only meaningful for a 12-slot wheel.
   - `minChroma` is kept between 0.01 and the less saturated input color's
@@ -70,10 +70,23 @@ getScheme("#3366cc");
     (red/green, yellow/violet), which gives warmer, more traditional-looking
     palettes. Only hue placement changes; lightness, chroma and the anchors
     themselves are the same. Throws a `RangeError` for any other value.
+  - `gamut` (`"srgb"` or `"print"`) sets how saturated colors may be.
+    `"srgb"` is what a standard screen shows. `"print"` also keeps every
+    color inside what CMYK offset printing on coated paper can reproduce
+    (FOGRA39 / ISO Coated v2), so the palette converts to CMYK without
+    its blues, violets, magentas and bright greens being clipped. The whole
+    palette is reshaped to the smaller gamut, not just clipped at its edge.
+    An input color outside the print gamut is desaturated to its edge, so
+    it no longer appears exactly. Throws a `RangeError` for any other value.
 - **`WHEELS`**, **`getWheel(name)`**, **`rybToOklchHue(angle)`**,
   **`oklchHueToRyb(hue)`** — the wheel names and their hue conversions
   (degrees in, `[0, 360)` out; `getWheel` returns `{ toWheel, toHue }`), for
   drawing or labelling the wheel yourself.
+- **`GAMUTS`**, **`getGamut(name)`**, **`maxInPrintChroma(L, H)`** — the
+  gamut names, a gamut's chroma limit (`getGamut` returns
+  `{ maxChroma(L, H) }` in OKLCH), and the print limit on its own.
+  `scripts/build-print-gamut-table.js` regenerates the print table from any
+  CMYK ICC profile.
 
 ## Where this came from
 

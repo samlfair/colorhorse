@@ -1,12 +1,12 @@
 /**
  * The page runs the palette math from $lib itself rather than calling
  * colorhorse's getScheme(), so check that the two still agree on both
- * wheels, using the same steps the page takes.
+ * wheels and gamuts, using the same steps the page takes.
  */
 import { describe, it, expect } from "vitest";
-import { getScheme, getWheel } from "colorhorse";
+import { getScheme, getWheel, getGamut } from "colorhorse";
 import { computeCylinderPoints } from "./cylinder-deform.js";
-import { hexToOklch, oklchToSrgb, maxInGamutChroma } from "./oklch.js";
+import { hexToOklch, oklchToSrgb } from "./oklch.js";
 import { computeColorScheme } from "./scheme.js";
 
 const ROLE_NAMES = {
@@ -20,11 +20,12 @@ const ROLE_NAMES = {
   Danger: "danger",
 };
 
-function pageScheme(colorOne, colorTwo, wheelName) {
+function pageScheme(colorOne, colorTwo, wheelName, gamutName) {
   const hueWheel = getWheel(wheelName);
+  const chromaGamut = getGamut(gamutName);
   const anchors = [colorOne, colorTwo].map((hex) => {
     const { L, C, H } = hexToOklch(hex);
-    const maxC = maxInGamutChroma(L, H);
+    const maxC = chromaGamut.maxChroma(L, H);
     return { D: hueWheel.toWheel(H), Z: L, R: maxC > 1e-9 ? Math.min(1, C / maxC) : 0, L, C, H };
   });
   const cyl = computeCylinderPoints(12, 10, anchors, 0.2, 0.1, 0.98, 0);
@@ -35,22 +36,24 @@ function pageScheme(colorOne, colorTwo, wheelName) {
     const hueIndex = scheme.roles[roleKey];
     result[roleName] = cyl.points
       .filter((point) => point.dIndex === hueIndex)
-      .map((point) => oklchToSrgb(point.Z, point.R * maxInGamutChroma(point.Z, ringHues[hueIndex]), ringHues[hueIndex]).hex);
+      .map((point) => oklchToSrgb(point.Z, point.R * chromaGamut.maxChroma(point.Z, ringHues[hueIndex]), ringHues[hueIndex]).hex);
   }
   return result;
 }
 
-describe("wheel parity with colorhorse", () => {
+describe("parity with colorhorse", () => {
   it("all assertions pass", () => {
     let failed = 0;
     const pairs = [["#3366cc", "#cc6633"], ["#e4572e", "#29335c"], ["#ffcc00", "#7a2fb5"]];
     for (const [colorOne, colorTwo] of pairs) {
       for (const wheelName of ["rgb", "ryb"]) {
-        const fromPage = JSON.stringify(pageScheme(colorOne, colorTwo, wheelName));
-        const fromPackage = JSON.stringify(getScheme(colorOne, colorTwo, { wheel: wheelName }));
-        if (fromPage !== fromPackage) {
-          failed++;
-          console.error(`FAIL: ${colorOne}/${colorTwo} on the ${wheelName} wheel differs from getScheme()`);
+        for (const gamutName of ["srgb", "print"]) {
+          const fromPage = JSON.stringify(pageScheme(colorOne, colorTwo, wheelName, gamutName));
+          const fromPackage = JSON.stringify(getScheme(colorOne, colorTwo, { wheel: wheelName, gamut: gamutName }));
+          if (fromPage !== fromPackage) {
+            failed++;
+            console.error(`FAIL: ${colorOne}/${colorTwo} on the ${wheelName} wheel, ${gamutName} gamut, differs from getScheme()`);
+          }
         }
       }
     }

@@ -9,6 +9,7 @@
  *   sat       minimum saturation (minChroma)
  *   contrast  contrast
  *   wheel     hue wheel, "rgb" or "ryb"
+ *   gamut     chroma limit, "srgb" or "print"
  *   v         model version; omitted for the current one
  *
  * Every setting is always written, defaults included, so a link keeps
@@ -26,6 +27,7 @@ export const URL_STATE_DEFAULTS = {
   sat: 0.2,
   contrast: 0,
   wheel: "rgb",
+  gamut: "srgb",
 };
 
 const NUMBER_SETTINGS = {
@@ -35,7 +37,10 @@ const NUMBER_SETTINGS = {
   contrast: { range: [0, 1], decimals: 2 },
 };
 
-const WHEEL_VALUES = ["rgb", "ryb"];
+const CHOICE_SETTINGS = {
+  wheel: ["rgb", "ryb"],
+  gamut: ["srgb", "print"],
+};
 
 const HEX_PATTERN = /^#?([0-9a-fA-F]{6})$/;
 
@@ -45,7 +50,7 @@ function roundTo(value, decimals) {
 }
 
 /**
- * @param {{colorOne: string, colorTwo: string, dark: number, light: number, sat: number, contrast: number, wheel: string}} settings
+ * @param {{colorOne: string, colorTwo: string, dark: number, light: number, sat: number, contrast: number, wheel: string, gamut: string}} settings
  *   colors as "#rrggbb"
  * @returns {string} query string without the leading "?" (empty when
  *   there's nothing to encode)
@@ -60,13 +65,15 @@ export function encodeUrlState(settings) {
     const value = settings[key];
     if (Number.isFinite(value)) params.set(key, String(roundTo(value, decimals)));
   }
-  if (WHEEL_VALUES.includes(settings.wheel)) params.set("wheel", settings.wheel);
+  for (const [key, choices] of Object.entries(CHOICE_SETTINGS)) {
+    if (choices.includes(settings[key])) params.set(key, settings[key]);
+  }
   return params.toString();
 }
 
 /**
  * @param {string} search  a query string, with or without the leading "?"
- * @returns {{version: number, colorOne?: string, colorTwo?: string, dark?: number, light?: number, sat?: number, contrast?: number, wheel?: string}}
+ * @returns {{version: number, colorOne?: string, colorTwo?: string, dark?: number, light?: number, sat?: number, contrast?: number, wheel?: string, gamut?: string}}
  *   colors as lowercase "#rrggbb"; only the settings actually present and
  *   valid in `search` are included
  */
@@ -86,7 +93,9 @@ export function decodeUrlState(search) {
     if (!Number.isFinite(value)) continue;
     decoded[key] = Math.min(Math.max(value, range[0]), range[1]);
   }
-  const wheel = params.get("wheel")?.toLowerCase();
-  if (WHEEL_VALUES.includes(wheel)) decoded.wheel = wheel;
+  for (const [key, choices] of Object.entries(CHOICE_SETTINGS)) {
+    const value = params.get(key)?.toLowerCase();
+    if (choices.includes(value)) decoded[key] = value;
+  }
   return decoded;
 }

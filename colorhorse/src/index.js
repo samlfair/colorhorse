@@ -18,10 +18,11 @@
  * might add (raw palette grids, CSS output, WCAG contrast, etc.) aren't
  * part of this surface yet.
  */
-import { hexToOklch, oklchToSrgb, maxInGamutChroma } from "./oklch.js";
+import { hexToOklch, oklchToSrgb } from "./oklch.js";
 import { computeCylinderPoints } from "./cylinder-deform.js";
 import { computeColorScheme } from "./scheme.js";
 import { getWheel } from "./ryb-wheel.js";
+import { getGamut } from "./gamut.js";
 
 const HUE_COUNT = 12; // fixed: computeColorScheme's harmony-name table (square/
 // analagous/tertiary/...) is defined specifically for a 12-slot wheel -- a
@@ -36,6 +37,7 @@ const DEFAULTS = {
 	contrast: 0,
 	shadeCount: 10,
 	wheel: "rgb",
+	gamut: "srgb",
 };
 
 // One-color fallback: when only colorOne is given, colorTwo is synthesized
@@ -84,10 +86,10 @@ function assertValidHex(hex, label) {
 }
 
 // D is the anchor's angle on the ring (in `wheel`'s angle space); H is its
-// OKLCH hue.
-function anchorFromHex(hex, wheel) {
+// OKLCH hue. R is relative to `gamut`, capped at its edge.
+function anchorFromHex(hex, wheel, gamut) {
 	const { L, C, H } = hexToOklch(hex);
-	const maxChroma = maxInGamutChroma(L, H);
+	const maxChroma = gamut.maxChroma(L, H);
 	const relativeChroma = maxChroma > 1e-9 ? Math.min(1, C / maxChroma) : 0;
 	return { D: wheel.toWheel(H), Z: L, R: relativeChroma, L, C, H };
 }
@@ -101,11 +103,14 @@ function anchorFromHex(hex, wheel) {
  *
  * @param {string} [colorOne] "#rrggbb" hex
  * @param {string} [colorTwo] "#rrggbb" hex
- * @param {{minLightness?: number, maxLightness?: number, minChroma?: number, contrast?: number, shadeCount?: number, wheel?: "rgb" | "ryb"}} [options]
+ * @param {{minLightness?: number, maxLightness?: number, minChroma?: number, contrast?: number, shadeCount?: number, wheel?: "rgb" | "ryb", gamut?: "srgb" | "print"}} [options]
  *   contrast: 0..1, biases shades toward the light and dark ends of each
  *   ramp (0 = evenly spread); throws a RangeError outside that range
  *   wheel: the hue wheel the 12 hues are spaced around (see ryb-wheel.js);
  *   throws a RangeError for anything else
+ *   gamut: the chroma limit (see gamut.js); with "print", an input color
+ *   outside the print gamut is desaturated to its edge, so it no longer
+ *   appears exactly; throws a RangeError for anything else
  * @returns {{
  *   schemeName: string, wheelDistance: number,
  *   anchors: {colorOne: object, colorTwo: object},
@@ -116,6 +121,7 @@ function anchorFromHex(hex, wheel) {
  */
 function generatePalette(colorOne, colorTwo, options = {}) {
 	const wheel = getWheel(options.wheel === undefined ? DEFAULTS.wheel : options.wheel);
+	const gamut = getGamut(options.gamut === undefined ? DEFAULTS.gamut : options.gamut);
 	const colorOneGiven = colorOne !== undefined;
 	colorOne = colorOneGiven ? colorOne : DEFAULTS.colorOne;
 	assertValidHex(colorOne, "colorOne");
@@ -134,9 +140,9 @@ function generatePalette(colorOne, colorTwo, options = {}) {
 		throw new RangeError(`contrast must be a number from 0 to 1, got ${JSON.stringify(contrast)}`);
 	}
 
-	const anchorOne = anchorFromHex(colorOne, wheel);
+	const anchorOne = anchorFromHex(colorOne, wheel, gamut);
 	if(anchorOne.C < GRAY_CHROMA) throw new Error("colorOne has a chroma of zero. Both input colors must have a chroma greater than zero.")
-	const anchorTwo = anchorFromHex(colorTwo, wheel);
+	const anchorTwo = anchorFromHex(colorTwo, wheel, gamut);
 	if(anchorTwo.C < GRAY_CHROMA) throw new Error("colorTwo has a chroma of zero. Both input colors must have a chroma greater than zero.")
 	const cylinder = computeCylinderPoints(HUE_COUNT, shadeCount, [anchorOne, anchorTwo], minChroma, minLightness, maxLightness, contrast);
 	// Semantic roles pick by OKLCH hue (closest to reference red, green, ...),
@@ -145,7 +151,7 @@ function generatePalette(colorOne, colorTwo, options = {}) {
 
 	const enrichedPoints = cylinder.points.map((point) => {
 		const hue = wheel.toHue(point.D);
-		const absoluteChroma = point.R * maxInGamutChroma(point.Z, hue);
+		const absoluteChroma = point.R * gamut.maxChroma(point.Z, hue);
 		const srgb = oklchToSrgb(point.Z, absoluteChroma, hue);
 		return {
 			hueIndex: point.dIndex,
@@ -205,3 +211,4 @@ export function getScheme(colorOne, colorTwo, options) {
 
 // The wheel conversions, for callers that draw or label the wheel themselves.
 export { WHEELS, getWheel, rybToOklchHue, oklchHueToRyb } from "./ryb-wheel.js";
+export { GAMUTS, getGamut, maxInPrintChroma } from "./gamut.js";

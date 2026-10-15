@@ -29,12 +29,12 @@
 	import { onMount, onDestroy } from "svelte";
 	import { replaceState } from "$app/navigation";
 	import { computeCylinderPoints, computeCylinderZLevels } from "$lib/cylinder-deform.js";
-	import { hexToOklch, oklchToSrgb, maxInGamutChroma } from "$lib/oklch.js";
+	import { hexToOklch, oklchToSrgb } from "$lib/oklch.js";
 	import { computeColorScheme } from "$lib/scheme.js";
 	import compileCSS from "$lib/compileCSS.js";
 	import { buildAseFile } from "$lib/ase.js";
 	import { encodeUrlState, decodeUrlState, URL_STATE_DEFAULTS } from "$lib/url-state.js";
-	import { getWheel } from "colorhorse";
+	import { getWheel, getGamut } from "colorhorse";
 	import Logo from "$lib/Logo.svelte"
 	import CircleDemo from "$lib/CircleDemo.svelte"
 	import RadarDemo from "$lib/RadarDemo.svelte"
@@ -176,6 +176,8 @@
 	// The ring is laid out in this wheel's angles (every D below);
 	// hueWheel.toHue turns an angle into an OKLCH hue for the color math.
 	let hueWheel = $derived(getWheel(wheel));
+	let gamut = $state(URL_STATE_DEFAULTS.gamut); // "srgb" | "print"
+	let chromaGamut = $derived(getGamut(gamut));
 	let azimuth = $state(30);
 	let elevation = $state(18);
 	let themeMode = $state("system"); // 'light' | 'dark' | 'system'
@@ -221,6 +223,7 @@
 		minChroma = settingsFromUrl.sat ?? minChroma;
 		contrast = settingsFromUrl.contrast ?? contrast;
 		wheel = settingsFromUrl.wheel ?? wheel;
+		gamut = settingsFromUrl.gamut ?? gamut;
 		colorized = true
 		anchorsSeeded = true
 
@@ -239,7 +242,7 @@
 	/* ------------------------- derived model ------------------------- */
 	function anchorFromColor(hex) {
 		const { L, C, H } = hexToOklch(hex);
-		const maxC = maxInGamutChroma(L, H);
+		const maxC = chromaGamut.maxChroma(L, H);
 		const R = maxC > 1e-9 ? Math.min(1, C / maxC) : 0;
 		return { D: hueWheel.toWheel(H), Z: L, R, L, C, H };
 	}
@@ -309,8 +312,8 @@
 		if(hueTwoAdjusted) second.H = hueWheel.toHue(hueTwo)
 		if(lightnessOneAdjusted) first.L = lightnessOne
 		if(lightnessTwoAdjusted) second.L = lightnessTwo
-		if(chromaOneAdjusted) first.C = chromaOne * maxInGamutChroma(first.L, first.H)
-		if(chromaTwoAdjusted) second.C = chromaTwo * maxInGamutChroma(second.L, second.H)
+		if(chromaOneAdjusted) first.C = chromaOne * chromaGamut.maxChroma(first.L, first.H)
+		if(chromaTwoAdjusted) second.C = chromaTwo * chromaGamut.maxChroma(second.L, second.H)
 
 		const adjustedHexOne = oklchToSrgb(first.L, first.C, first.H).hex
 		const adjustedHexTwo = oklchToSrgb(second.L, second.C, second.H).hex
@@ -348,6 +351,7 @@
 			sat: minChroma,
 			contrast,
 			wheel,
+			gamut,
 		}),
 	);
 	let pendingUrlQuery = null;
@@ -660,7 +664,7 @@
 	let points = $derived(
 		cyl.points.map((p) => ({
 			...p,
-			color: oklchToSrgb(p.Z, p.R * maxInGamutChroma(p.Z, ringHues[p.dIndex]), ringHues[p.dIndex]),
+			color: oklchToSrgb(p.Z, p.R * chromaGamut.maxChroma(p.Z, ringHues[p.dIndex]), ringHues[p.dIndex]),
 		})),
 	);
 
@@ -1187,7 +1191,7 @@
 {#snippet circleDemo()}
 	<h2>Hue</h2>
 	{@render content.hue()}
-	<CircleDemo points={cyl.D} hues={ringHues} chroma={anchors[0].C} lightness={anchors[0].L} anchorOneIndex={anchorOneHueIndex} anchorTwoIndex={anchorTwoHueIndex} />
+	<CircleDemo points={cyl.D} hues={ringHues} chroma={Math.min(anchors[0].C, chromaGamut.maxChroma(anchors[0].L, anchors[0].H))} lightness={anchors[0].L} anchorOneIndex={anchorOneHueIndex} anchorTwoIndex={anchorTwoHueIndex} />
 	<div class="circle controls">
 		<label>Primary Color Hue
 			<input type="range" min=0 max=360 bind:value={hueOne} oninput={() => hueOneAdjusted = true} />
@@ -1201,6 +1205,15 @@
 		{@render wheelSelect()}
 	</div>
 	<button onclick={resetHue}>Reset</button>
+{/snippet}
+
+{#snippet gamutSelect()}
+	<label>Gamut
+		<select bind:value={gamut}>
+			<option value="srgb">sRGB</option>
+			<option value="print">Print</option>
+		</select>
+	</label>
 {/snippet}
 
 {#snippet wheelSelect()}
@@ -1219,7 +1232,7 @@
 {#snippet radarDemo()}
 	<h2>Saturation</h2>
 	{@render content.saturation()}
-	<RadarDemo hueDegrees={cyl.D} hues={ringHues} rings={radarRings} />
+	<RadarDemo hueDegrees={cyl.D} hues={ringHues} {gamut} rings={radarRings} />
 		<label>Primary color saturation
 			<input
 				type="range"
@@ -1240,6 +1253,10 @@
 				oninput={() => chromaTwoAdjusted = true}
 			/>
 		</label>
+		{@render content.gamut()}
+		<div class="circle controls">
+			{@render gamutSelect()}
+		</div>
 		<button onclick={resetSaturation}>Reset</button>
 {/snippet}
 
@@ -1365,6 +1382,7 @@
 					/>
 				</label>
 				{@render wheelSelect()}
+				{@render gamutSelect()}
 			</div>
 		</div>
 		{@render schemePalette()}
