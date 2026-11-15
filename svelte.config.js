@@ -18,12 +18,11 @@ const config = {
 			strict: true
 		}),
 		prerender: {
-			// /logo is a development-only tool that answers 404 in a
-			// production build (see src/routes/logo/+page.js), so it's left
-			// out of the site. Every other prerender error still fails the
-			// build.
+			// /logo and /wheel are development-only tools that answer 404 in
+			// a production build (see their +page.js), so they're left out of
+			// the site. Every other prerender error still fails the build.
 			handleHttpError: ({ path, status, message }) => {
-				if (path === '/logo' && status === 404) return;
+				if (['/logo', '/wheel'].includes(path) && status === 404) return;
 				throw new Error(message);
 			}
 		}

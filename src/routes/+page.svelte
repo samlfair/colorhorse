@@ -210,11 +210,11 @@
 		{ id: "palette", label: "Palette" },
 		{ id: "space", label: "Space" },
 		{ id: "example", label: "Example" },
-		{ id: "method", label: "Method" },
+		{ id: "theory", label: "Theory" },
 		{ id: "about", label: "About" },
 	];
 	// Older links use the tabs' former names.
-	const RENAMED_TABS = { overview: "method", demo: "example" };
+	const RENAMED_TABS = { overview: "theory", method: "theory", demo: "example" };
 	let activeTab = $derived.by(() => {
 		const hashId = page.url.hash.slice(1);
 		const tabId = RENAMED_TABS[hashId] ?? hashId;
@@ -778,8 +778,6 @@
 	let curveDemoChromaValuesPrimary = $derived(chromaValuesForHue(cyl.anchorIndices[0]));
 	let curveDemoChromaValuesSecondary = $derived(chromaValuesForHue(cyl.anchorIndices[1]));
 
-	let anchorOneHueIndex = $derived(cyl.anchorIndices[0])
-	let anchorTwoHueIndex = $derived(cyl.anchorIndices[1])
 
 	let anchorOneLightnessIndex = $derived(cyl.zLevels.findIndex(p => anchors[0].L.toFixed(3) === p.toFixed(3)))
 	let anchorTwoLightnessIndex = $derived(cyl.zLevels.findIndex(p => anchors[1].L.toFixed(3) === p.toFixed(3)))
@@ -889,6 +887,31 @@
 				.join(", "),
 		),
 	);
+
+	// The Theory tab's hue wheels: every hue, or just those with a role
+	// (the color scheme), labelled with all their roles or just the two
+	// seeds' (Primary and Secondary).
+	let fullRing = $derived(cyl.D.map((_, dIndex) => dIndex));
+	let schemeRing = $derived(fullRing.filter((dIndex) => ringRoleLabels[dIndex]));
+	let seedLabels = $derived(
+		cyl.D.map((_, dIndex) =>
+			["Primary", "Secondary"].filter((roleName) => scheme.roles[roleName] === dIndex).join(", "),
+		),
+	);
+	function wheelOf(dIndices, labels = ringRoleLabels) {
+		return {
+			points: dIndices.map((dIndex) => cyl.D[dIndex]),
+			hues: dIndices.map((dIndex) => ringHues[dIndex]),
+			labels: dIndices.map((dIndex) => labels[dIndex]),
+			anchorOneIndex: dIndices.indexOf(cyl.anchorIndices[0]),
+			anchorTwoIndex: dIndices.indexOf(cyl.anchorIndices[1]),
+			chroma: Math.min(anchors[0].C, chromaGamut.maxChroma(anchors[0].L, anchors[0].H)),
+			lightness: anchors[0].L,
+			toHue: hueWheel.toHue,
+			dots: false,
+			outline: false,
+		};
+	}
 
 
 	let resolvedThemeIsDark = $derived(
@@ -1192,10 +1215,10 @@
 		</div>
 
 		<div
-			id="method"
-			hidden={activeTab !== "method"}
+			id="theory"
+			hidden={activeTab !== "theory"}
 		>
-			<h2>Method</h2>
+			<h2>Theory</h2>
 
 			<section>
 				{@render content.how()}
@@ -1206,21 +1229,35 @@
 				<figure>
 					<figcaption>{@render content.hue()}</figcaption>
 					<CircleDemo
-						points={cyl.D}
-						hues={ringHues}
-						chroma={Math.min(anchors[0].C, chromaGamut.maxChroma(anchors[0].L, anchors[0].H))}
-						lightness={anchors[0].L}
-						anchorOneIndex={anchorOneHueIndex}
-						anchorTwoIndex={anchorTwoHueIndex}
-						labels={ringRoleLabels}
+						{...wheelOf(fullRing, seedLabels)}
+						band="rainbow"
+						hueMarkers
 					/>
 				</figure>
+				{@render content.warp()}
 				{@render content.spread()}
-				{@render content.wheel()}
-			</section>
-
-			<section>
-				{@render content.shades()}
+				<figure>
+					<figcaption>{@render content.hueShare()}</figcaption>
+					<CircleDemo
+						{...wheelOf(fullRing, seedLabels)}
+						band="proportional"
+					/>
+				</figure>
+				<figure>
+					<figcaption>{@render content.hueSlots()}</figcaption>
+					<CircleDemo
+						{...wheelOf(fullRing)}
+						band="equal"
+					/>
+				</figure>
+				{@render content.selection()}
+				<figure>
+					<figcaption>{@render content.schemeWheel()}</figcaption>
+					<CircleDemo
+						{...wheelOf(schemeRing)}
+						band="equal"
+					/>
+				</figure>
 			</section>
 
 			<section>
@@ -1235,32 +1272,11 @@
 						anchorTwoIndex={anchorTwoLightnessIndex}
 					/>
 				</figure>
-			</section>
-
-			<section>
-				{@render content.chroma()}
+				{@render content.rampControls()}
 			</section>
 
 			<section>
 				<h3>Saturation</h3>
-				<figure>
-					<figcaption>{@render content.saturation()}</figcaption>
-					<RadarDemo
-						hueDegrees={cyl.D}
-						hues={ringHues}
-						{gamut}
-						rings={radarRings}
-					/>
-				</figure>
-				{@render content.gamut()}
-			</section>
-
-			<section>
-				{@render content.desaturation()}
-			</section>
-
-			<section>
-				<h3>Fade</h3>
 				<figure>
 					<figcaption>{@render content.fade()}</figcaption>
 					<CurveDemo
@@ -1276,14 +1292,36 @@
 						title="Secondary color saturation across the shades"
 					/>
 				</figure>
+				<figure>
+					<figcaption>{@render content.saturation()}</figcaption>
+					<RadarDemo
+						hueDegrees={cyl.D}
+						hues={ringHues}
+						{gamut}
+						rings={radarRings}
+					/>
+				</figure>
+				{@render content.gamut()}
 			</section>
 
 			<section>
-				{@render content.oklch()}
-			</section>
-
-			<section>
-				{@render content.selection()}
+				<h3>Palette</h3>
+				{@render content.palette()}
+				<ul class="shade-radars">
+					{#each cyl.zLevels as lightness, shadeIndex (shadeIndex)}
+						<li>
+							<RadarDemo
+								hueDegrees={cyl.D}
+								hues={ringHues}
+								{gamut}
+								rings={[{ chromaValues: cyl.R[shadeIndex], lightness, anchors: [] }]}
+								title="Saturation of each hue, shade {shadeIndex + 1}"
+								dotRadius={13}
+							/>
+						</li>
+					{/each}
+				</ul>
+				{@render content.paletteSpace()}
 			</section>
 		</div>
 
@@ -1750,6 +1788,11 @@
 					<li><button type="button" onclick={downloadPaletteText}><Download />Text</button></li>
 					<li><button type="button" onclick={downloadPaletteAse}><Download />ASE</button></li>
 				</menu>
+			</fieldset>
+
+			<fieldset>
+				<legend>Feedback</legend>
+				{@render content.feedback()}
 			</fieldset>
 		</form>
 
@@ -2282,7 +2325,7 @@
 	}
 
 	/* A spacer above the tabs that scroll. */
-	main:has(> :is(#method, #example, #about):not([hidden])) {
+	main:has(> :is(#theory, #example, #about):not([hidden])) {
 		padding-top: 6rem;
 	}
 
@@ -2295,6 +2338,22 @@
 
 		> #space > section {
 			min-height: 0;
+		}
+	}
+
+	/* The Palette section: one chart per shade, three or four across. */
+	.shade-radars {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 1rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	@container (width >= 700px) {
+		.shade-radars {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
 		}
 	}
 
@@ -2367,22 +2426,22 @@
 	/* The tab's title, then its sections' headings. */
 	main > div > h2 {
 		margin: 0;
+		padding-bottom: 0.3em;
 		font-family: var(--heading-font);
 		font-size: 2.6em;
 		font-weight: 700;
 		letter-spacing: -0.04em;
 		line-height: 1;
 		color: var(--heading);
+		border-bottom: 1px solid var(--border);
 	}
 
 	section > :global(h3) {
-		padding-bottom: 0.3em;
 		font-family: var(--heading-font);
 		font-size: 1.7em;
 		font-weight: 700;
 		letter-spacing: -0.03em;
 		color: var(--heading);
-		border-bottom: 1px solid var(--border);
 	}
 
 	:global(h3:before) {

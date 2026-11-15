@@ -17,6 +17,9 @@
 		gamut = "srgb",
 		rings = [{ chromaValues: [], lightness: 0.6, anchors: [] }],
 		title = "Saturation of each hue",
+		// The hue dots' radius, in the 400-wide drawing: larger for charts
+		// shown small.
+		dotRadius = 5,
 	} = $props();
 
 	const ringCenter = { x: 200, y: 200 };
@@ -109,7 +112,7 @@
 				<circle
 					cx={pointCoordinate.x}
 					cy={pointCoordinate.y}
-					r={isAnchorPoint ? 9 : 5}
+					r={isAnchorPoint ? 9 : dotRadius}
 					fill={pointCoordinate.hex}
 					stroke={isAnchorPoint ? renderedRing.strokeColor : "var(--border)"}
 					stroke-width={isAnchorPoint ? 3 : 1}

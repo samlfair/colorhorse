@@ -4,10 +4,11 @@
 	const allDemos = [
 		{ href: '/', label: 'Color Horse', desc: 'The palette generator: an OKLCH palette from two colors, with every control in one panel beside the diagrams.' },
 		{ href: '/logo', label: 'Logo', desc: 'Develop the two-circle logo mark: palette colors per region, overlap, axis, and horse placement.' },
+		{ href: '/wheel', label: 'Hue Wheel', desc: 'Sketches of the hue wheel with a colored band: a rainbow, proportional segments, and equal segments.' },
 		{ href: '/diagnostics', label: 'Chroma Shape Diagnostics', desc: 'A dev tool proving the cylinder\'s chroma ring is a convex ovoid, not a furrowed heart shape.' }
 	];
-	// The logo editor is development-only (see src/routes/logo/+page.js).
-	const demos = allDemos.filter((demo) => dev || demo.href !== '/logo');
+	// The logo editor and the wheel sketches are development-only.
+	const demos = allDemos.filter((demo) => dev || !['/logo', '/wheel'].includes(demo.href));
 </script>
 
 <svelte:head>
