@@ -2,8 +2,7 @@
 	import { dev } from '$app/environment';
 
 	const allDemos = [
-		{ href: '/', label: 'Color Horse', desc: '120 points on a 3D cylinder, doubling as an OKLCH color palette with a live theme -- the hue, lightness, and chroma demos live here too.' },
-		{ href: '/studio', label: 'Color Horse Studio', desc: 'The same palette with every control in one sticky panel beside the diagrams.' },
+		{ href: '/', label: 'Color Horse', desc: 'The palette generator: an OKLCH palette from two colors, with every control in one panel beside the diagrams.' },
 		{ href: '/logo', label: 'Logo', desc: 'Develop the two-circle logo mark: palette colors per region, overlap, axis, and horse placement.' },
 		{ href: '/diagnostics', label: 'Chroma Shape Diagnostics', desc: 'A dev tool proving the cylinder\'s chroma ring is a convex ovoid, not a furrowed heart shape.' }
 	];

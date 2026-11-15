@@ -22,9 +22,6 @@
     "vitest": "^4.1.11"
   },
   "dependencies": {
-    "colorhorse": "*",
-    "remark-admonition": "^2.0.0",
-    "remark-alerts": "^0.0.1",
-    "remark-github-alerts": "^0.1.1"
+    "colorhorse": "*"
   }
 }

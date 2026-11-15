@@ -1,4 +1,4 @@
-// The standing horse from the original logo (src/lib/Logo.svelte), facing
+// The standing horse from the original logo, facing
 // right, in its own coordinates (roughly 25-98 across, 18-91 down).
 
 // The far ear, behind the head.
