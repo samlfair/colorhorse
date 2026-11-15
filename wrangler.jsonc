@@ -1,0 +1,13 @@
+// Cloudflare Workers with static assets: build/ is served as static files,
+// and worker/index.js runs only for paths with no file (palette share
+// links and their preview images).
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "color-horse",
+	"main": "worker/index.js",
+	"compatibility_date": "2026-11-01",
+	"assets": {
+		"directory": "./build",
+		"binding": "ASSETS"
+	}
+}

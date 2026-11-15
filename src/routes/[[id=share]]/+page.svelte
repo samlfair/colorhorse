@@ -22,6 +22,7 @@
 	import compileCSS from "$lib/compileCSS.js";
 	import { buildAseFile } from "$lib/ase.js";
 	import { encodeUrlState, decodeUrlState, URL_STATE_DEFAULTS, SHADE_COUNT_RANGE, URL_STATE_VERSION, KNOWN_URL_STATE_VERSIONS } from "$lib/url-state.js";
+	import { shareId } from "$lib/share.js";
 	import { getWheel, getGamut } from "colorhorse";
 	import LogoMark from "$lib/LogoMark.svelte"
 	import { logoColors } from "$lib/logo-colors.js"
@@ -533,7 +534,8 @@
 
 	// The URL carries each anchor's EFFECTIVE color (after any hue/lightness/
 	// saturation override), so a link reproduces the palette without
-	// encoding the overrides themselves. Writes are throttled: Safari throws
+	// encoding the overrides themselves. The path is the settings' share id
+	// (see share.js), so a shared link previews its own palette. Writes are throttled: Safari throws
 	// if a page calls replaceState ~100 times in 30s, which dragging a
 	// slider would otherwise do.
 	const URL_WRITE_INTERVAL_MS = 300;
@@ -556,9 +558,10 @@
 	let urlWriteTimer = null;
 	function writeUrlQuery() {
 		urlWriteTimer = null;
-		const nextSearch = pendingUrlQuery ? `?${pendingUrlQuery}` : "";
-		if (nextSearch === window.location.search) return;
-		replaceState(`${window.location.pathname}${nextSearch}${window.location.hash}`, {});
+		const nextPath = `/${shareId(pendingUrlQuery)}`;
+		const nextSearch = `?${pendingUrlQuery}`;
+		if (nextPath === window.location.pathname && nextSearch === window.location.search) return;
+		replaceState(`${nextPath}${nextSearch}${window.location.hash}`, {});
 	}
 	$effect(() => {
 		if (!anchorsSeeded) return;
@@ -1128,7 +1131,16 @@
 	<link
 		rel="icon"
 		href="/favicon.ico"
-		type="image/x-icon"
+		sizes="32x32"
+	/>
+	<link
+		rel="icon"
+		href="/favicon.svg"
+		type="image/svg+xml"
+	/>
+	<link
+		rel="apple-touch-icon"
+		href="/apple-touch-icon.png"
 	/>
 	{@html headerStyles}
 </svelte:head>
@@ -2174,7 +2186,7 @@
 		font-size: 3rem;
 		text-fit: grow 300%;
 		font-weight: 700;
-		letter-spacing: -0.04em;
+		letter-spacing: -0.1em;
 		line-height: 1;
 		color: var(--title);
 		text-box-trim: trim-both;

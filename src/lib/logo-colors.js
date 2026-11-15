@@ -15,6 +15,13 @@ export const LOGO_REGIONS = [
 	{ key: "headOverlap", label: "Head in Overlap", hue: 1, shade: 10 },
 ];
 
+// The link-preview image's regions: the logo's, plus the surface it sits
+// on, which fills the rest of the image.
+export const OG_IMAGE_REGIONS = [
+	...LOGO_REGIONS,
+	{ key: "ogSurface", label: "Preview Image Surface", hue: 7, shade: 9 },
+];
+
 /**
  * @param {{shades: string[]}[]} huesFromColorOne  hues starting from color one's
  *   (see hue-palette.js's huesFromColorOne)

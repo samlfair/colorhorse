@@ -20,6 +20,10 @@ export const LOGO_PADDING = { top: 0.25, inline: 0.25, bottom: 0.25 };
 // The background's corner radius, as a fraction of the circles' radius.
 export const LOGO_CORNER_RADIUS = 0.25;
 
+// The logo's own overlap and axis (see logoGeometry), shared by LogoMark
+// and the favicon.
+export const LOGO_SHAPE = { overlapArcFraction: 0.42, axisDegrees: 30 };
+
 // The point on the horse (in the original logo's coordinates) that the
 // horse's placement is measured from: the center of the eye, the small
 // circle cut out of HORSE_BODY. At (0, 0), it sits midway between the

@@ -6,3 +6,6 @@ build/
 claude-tasks
 CLAUDE.md
 container.sh
+
+# wrangler dev's local state
+.wrangler

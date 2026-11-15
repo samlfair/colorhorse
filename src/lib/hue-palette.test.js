@@ -56,6 +56,18 @@ describe("hue-palette", () => {
 			}
 		}
 
+		// Spread: color two lands colorTwoSlot hues after color one, as in
+		// getScheme, except when the colors share a hue.
+		{
+			const palette = huePalette("#4da3ff", "#ff6b4d", { colorTwoSlot: 3 });
+			assert((palette.colorTwoIndex - palette.colorOneIndex + HUE_COUNT) % HUE_COUNT === 3, "colorTwoSlot 3 puts color two 3 hues on");
+			const scheme = getScheme("#4da3ff", "#ff6b4d", { colorTwoSlot: 3 });
+			assert(scheme.secondary.join() === palette.hues[palette.colorTwoIndex].shades.join(), "colorTwoSlot matches getScheme's secondary");
+			const shared = huePalette("#ff0000", "#800000", { colorTwoSlot: 3 });
+			const nearest = huePalette("#ff0000", "#800000");
+			assert(shared.colorTwoIndex === nearest.colorTwoIndex, "colors sharing a hue ignore colorTwoSlot");
+		}
+
 		// Other shade counts.
 		{
 			const palette = huePalette("#4da3ff", "#ff6b4d", { shadeCount: 6 });

@@ -6,6 +6,8 @@
  */
 import { hexToOklch, oklchToSrgb } from "./oklch.js";
 import { computeCylinderPoints } from "./cylinder-deform.js";
+import { normalizeHue } from "./hue-deform.js";
+import { MIN_GAP } from "./tension-ring.js";
 import { getWheel, getGamut } from "colorhorse";
 
 export const HUE_COUNT = 12;
@@ -13,8 +15,9 @@ export const HUE_COUNT = 12;
 /**
  * @param {string} colorOne  "#rrggbb"
  * @param {string} colorTwo  "#rrggbb"
- * @param {{shadeCount?: number, minChroma?: number, minLightness?: number, maxLightness?: number, contrast?: number, wheel?: string, gamut?: string}} [options]
- *   the same defaults as colorhorse
+ * @param {{shadeCount?: number, minChroma?: number, minLightness?: number, maxLightness?: number, contrast?: number, wheel?: string, gamut?: string, colorTwoSlot?: number}} [options]
+ *   the same defaults as colorhorse; colorTwoSlot (spread) is ignored when
+ *   the two colors share a hue, as on the home page
  * @returns {{hues: {hue: number, shades: string[]}[], colorOneIndex: number, colorTwoIndex: number}}
  *   hues in ring order; shades from darkest to lightest, as hex
  */
@@ -26,6 +29,7 @@ export function huePalette(colorOne, colorTwo, {
 	contrast = 0,
 	wheel = "rgb",
 	gamut = "srgb",
+	colorTwoSlot = undefined,
 } = {}) {
 	const hueWheel = getWheel(wheel);
 	const chromaGamut = getGamut(gamut);
@@ -34,7 +38,10 @@ export function huePalette(colorOne, colorTwo, {
 		const maxChroma = chromaGamut.maxChroma(L, H);
 		return { D: hueWheel.toWheel(H), Z: L, R: maxChroma > 1e-9 ? Math.min(1, C / maxChroma) : 0, L, C, H };
 	});
-	const cylinder = computeCylinderPoints(HUE_COUNT, shadeCount, anchors, minChroma, minLightness, maxLightness, contrast);
+	const gap = normalizeHue(anchors[1].D - anchors[0].D);
+	const anchorsShareHue = gap < MIN_GAP || gap > 360 - MIN_GAP;
+	const slot = anchorsShareHue ? undefined : colorTwoSlot;
+	const cylinder = computeCylinderPoints(HUE_COUNT, shadeCount, anchors, minChroma, minLightness, maxLightness, contrast, slot);
 	const hues = cylinder.D.map((wheelAngle) => ({ hue: hueWheel.toHue(wheelAngle), shades: [] }));
 	for (const point of cylinder.points) {
 		const hue = hues[point.dIndex].hue;

@@ -10,7 +10,8 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "preview:worker": "vite build && wrangler dev"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.10",
@@ -19,7 +20,8 @@
     "mdsvex": "^0.12.7",
     "svelte": "^5.56.10",
     "vite": "^8.2.2",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "wrangler": "^4.162.0"
   },
   "dependencies": {
     "colorhorse": "*"

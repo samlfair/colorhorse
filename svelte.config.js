@@ -18,6 +18,9 @@ const config = {
 			strict: true
 		}),
 		prerender: {
+			// The home page, and one copy at a placeholder share id for the
+			// Worker to serve at every other id (see src/lib/share.js).
+			entries: ['*', '/', '/00000000'],
 			// /logo and /wheel are development-only tools that answer 404 in
 			// a production build (see their +page.js), so they're left out of
 			// the site. Every other prerender error still fails the build.

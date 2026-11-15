@@ -1,5 +1,5 @@
 <script>
-	import { logoGeometry, horseTransform, LOGO_PADDING, LOGO_CORNER_RADIUS } from "$lib/logo-geometry.js";
+	import { logoGeometry, horseTransform, LOGO_PADDING, LOGO_CORNER_RADIUS, LOGO_SHAPE } from "$lib/logo-geometry.js";
 	import { HORSE_EAR, HORSE_MANE, HORSE_BODY } from "$lib/horse-paths.js";
 
 	let {
@@ -14,8 +14,8 @@
 		headOne = "#284e78",
 		headTwo = "#75382b",
 		headOverlap = "#2c5552",
-		overlapArcFraction = 0.42,
-		axisDegrees = 30,
+		overlapArcFraction = LOGO_SHAPE.overlapArcFraction,
+		axisDegrees = LOGO_SHAPE.axisDegrees,
 		horseScale = 4,
 		horseX = 0,
 		horseY = 0,

@@ -1,20 +1,25 @@
 <script>
 	import { huePalette, huesFromColorOne, HUE_COUNT } from "$lib/hue-palette.js";
 	import { randomAnchorHex, HEX_COLOR_PATTERN } from "$lib/random-color.js";
-	import { LOGO_REGIONS, logoColors } from "$lib/logo-colors.js";
+	import { OG_IMAGE_REGIONS, logoColors } from "$lib/logo-colors.js";
 	import LogoMark from "$lib/LogoMark.svelte";
 	import Shuffle from "$lib/Shuffle.svelte";
 
 	const HUES = Array.from({ length: HUE_COUNT }, (_, hueIndex) => hueIndex + 1);
 	const SHADES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 	const PREVIEW_SIZES = [128, 64, 32, 16];
+	// The link-preview image: 1200 square, with the logo 520 across in the
+	// middle (see scripts/build-og-image.js), shown here at a third.
+	const OG_IMAGE_SIZE = 400;
+	const OG_LOGO_SIZE = (OG_IMAGE_SIZE * 520) / 1200;
 
 	let colorOne = $state("#4da3ff");
 	let colorTwo = $state("#ff6b4d");
 
-	// Each region of the mark takes one palette color: a hue, counted around
-	// the ring from color one's, and a shade. Starts from the logo's own.
-	let regions = $state(LOGO_REGIONS.map((region) => ({ ...region })));
+	// Each region of the mark, and the preview image's surface behind it,
+	// takes one palette color: a hue, counted around the ring from color
+	// one's, and a shade. Starts from the logo's own.
+	let regions = $state(OG_IMAGE_REGIONS.map((region) => ({ ...region })));
 
 	let overlapPercent = $state(42);
 	let axisDegrees = $state(30);
@@ -63,6 +68,15 @@
 
 		<figure bind:this={largeLogo}>
 			{@render mark(400)}
+		</figure>
+
+		<h2>Preview Image</h2>
+		<figure
+			class="og-image"
+			style:--size="{OG_IMAGE_SIZE}px"
+			style:--surface={regionColors.ogSurface}
+		>
+			{@render mark(OG_LOGO_SIZE)}
 		</figure>
 
 		<ul>
@@ -256,6 +270,25 @@
 
 	figure {
 		margin: 0;
+	}
+
+	h2 {
+		align-self: flex-start;
+		margin: 0;
+	}
+
+	/* No dark mode, like the image itself. */
+	.og-image {
+		display: grid;
+		place-items: center;
+		width: var(--size);
+		aspect-ratio: 1;
+		color-scheme: light;
+		background: var(--surface);
+
+		:global(svg) {
+			display: block;
+		}
 	}
 
 	main ul {
