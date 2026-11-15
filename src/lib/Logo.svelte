@@ -1,11 +1,10 @@
 <script>
 	let { colorOne = "", colorTwo = "" } = $props()
 
-	$effect(() => console.log({ colorOne, colorTwo }))
-
 </script>
 
 <svg
+	aria-hidden="true"
 	version="1.2"
 	xmlns="http://www.w3.org/2000/svg"
 	viewBox="25 17.999999999999996 73.00000000000001 73"

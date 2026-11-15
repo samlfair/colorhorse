@@ -16,7 +16,17 @@ const config = {
 			fallback: undefined,
 			precompress: false,
 			strict: true
-		})
+		}),
+		prerender: {
+			// /logo is a development-only tool that answers 404 in a
+			// production build (see src/routes/logo/+page.js), so it's left
+			// out of the site. Every other prerender error still fails the
+			// build.
+			handleHttpError: ({ path, status, message }) => {
+				if (path === '/logo' && status === 404) return;
+				throw new Error(message);
+			}
+		}
 	},
 	preprocess: [mdsvex({ extensions: ['.svx', '.md'], remarkPlugins: [remarkSimpleAlerts] })],
 	extensions: ['.svelte', '.svx', '.md']

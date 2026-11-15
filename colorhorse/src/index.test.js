@@ -5,7 +5,8 @@
  * scheme.test.js, ...); this only covers the shaping layer index.js adds
  * on top of them.
  */
-import { getScheme, maxInPrintChroma } from './index.js';
+import { getScheme, getHueRing, assignRoles, maxInPrintChroma } from './index.js';
+import { computeColorScheme } from './scheme.js';
 import { hexToOklch, oklchToSrgb } from './oklch.js';
 
 import { describe, it, expect } from 'vitest';
@@ -223,6 +224,73 @@ describe('colorhorse public API', () => {
 				JSON.stringify(noArgScheme) === JSON.stringify(explicitDefaultScheme),
 				'getScheme() with no args is unaffected by the one-color fallback'
 			);
+		}
+
+		// ---------------------------------------------------------------------------
+		// roleModel (0.7): model 2 is the default, model 1 is the 0.6 assignment.
+		// ---------------------------------------------------------------------------
+		{
+			const pairs = [['#3366cc', '#cc6633'], ['#e4572e', '#29335c'], ['#ffcc00', '#7a2fb5'], ['#2e86de', '#5f27cd']];
+			const allRoles = ['primary', 'secondary', 'tertiary', 'accent', 'success', 'info', 'warning', 'danger'];
+			for (const [colorOne, colorTwo] of pairs) {
+				const label = `${colorOne}/${colorTwo}`;
+				assert(
+					JSON.stringify(getScheme(colorOne, colorTwo)) === JSON.stringify(getScheme(colorOne, colorTwo, { roleModel: 2 })),
+					`${label}: roleModel 2 is the default`,
+				);
+
+				// Model 1 picks exactly the hues the 0.6 assignment does.
+				const ring = getHueRing(colorOne, colorTwo);
+				const modelOne = computeColorScheme(ring.hues, ring.colorOneIndex, ring.colorTwoIndex);
+				const assignedOne = assignRoles(ring.hues, ring.colorOneIndex, ring.colorTwoIndex, { roleModel: 1 });
+				assert(assignedOne.roles.success === modelOne.roles.Tip && assignedOne.roles.danger === modelOne.roles.Danger, `${label}: roleModel 1 matches the 0.6 roles`);
+
+				// On the nearest slot, both models give all 8 roles on 8 distinct hues.
+				for (const roleModel of [1, 2]) {
+					const scheme = getScheme(colorOne, colorTwo, { roleModel });
+					assert(allRoles.every((roleName) => roleName in scheme), `${label}: roleModel ${roleModel} has all 8 roles on the nearest slot`);
+					const assigned = assignRoles(ring.hues, ring.colorOneIndex, ring.colorTwoIndex, { roleModel });
+					assert(new Set(Object.values(assigned.roles)).size === 8, `${label}: roleModel ${roleModel} uses 8 distinct hues`);
+					assert(typeof assigned.harmonyName === 'string' && assigned.harmonyName.length > 0, `${label}: assignRoles names the harmony`);
+				}
+
+				// Naming the nearest slot explicitly keeps the nearest-slot role
+				// rules (the ring itself is laid out by tension-ring.js, so its
+				// hues differ slightly from the default ring).
+				const nearestSlot = (ring.colorTwoIndex - ring.colorOneIndex + 12) % 12;
+				const explicitNearest = getScheme(colorOne, colorTwo, { colorTwoSlot: nearestSlot });
+				assert(allRoles.every((roleName) => roleName in explicitNearest), `${label}: colorTwoSlot set to the nearest slot keeps all 8 roles`);
+			}
+
+			// On a moved slot, model 2 may leave a semantic role out; model 1 never does.
+			let leftOut = 0;
+			for (const [colorOne, colorTwo] of pairs) {
+				for (let colorTwoSlot = 1; colorTwoSlot < 12; colorTwoSlot++) {
+					const modelTwo = getScheme(colorOne, colorTwo, { colorTwoSlot });
+					const modelOne = getScheme(colorOne, colorTwo, { colorTwoSlot, roleModel: 1 });
+					assert(Object.keys(modelOne).length === 8, `${colorOne}/${colorTwo} slot ${colorTwoSlot}: roleModel 1 keeps every role`);
+					assert(['primary', 'secondary', 'tertiary', 'accent'].every((roleName) => roleName in modelTwo), `${colorOne}/${colorTwo} slot ${colorTwoSlot}: the harmony roles are always present`);
+					leftOut += 8 - Object.keys(modelTwo).length;
+				}
+			}
+			assert(leftOut > 0, 'some moved slot leaves a semantic role out under roleModel 2');
+
+			for (const badModel of [0, 3, '2', null]) {
+				let threw = false;
+				try {
+					getScheme('#3366cc', '#cc6633', { roleModel: badModel });
+				} catch (error) {
+					threw = error instanceof RangeError;
+				}
+				assert(threw, `roleModel ${JSON.stringify(badModel)} throws a RangeError`);
+			}
+			let threw = false;
+			try {
+				assignRoles([0, 30, 60], 0, 1);
+			} catch (error) {
+				threw = error instanceof RangeError;
+			}
+			assert(threw, 'assignRoles needs 12 hues');
 		}
 
 		expect(failed, failed + ' assertion(s) failed -- see console output above for FAIL: details').toBe(0);

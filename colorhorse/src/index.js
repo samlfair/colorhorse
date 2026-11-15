@@ -3,9 +3,10 @@
  * OKLCH color scheme -- 12 hues around a ring (bending-energy relaxed
  * between the two anchors, same model as the /circle demo), each with a
  * lightness/chroma taper of `shadeCount` shades (same model as /line and
- * /curve), classified into 8 named roles (primary/secondary/tertiary/accent
- * plus success/info/warning/danger) by hue distance to reference red/green/
- * blue/yellow.
+ * /curve), classified into 8 named roles: primary/secondary/tertiary/
+ * accent, which form a color harmony, plus success/info/warning/danger,
+ * each kept inside its own hue family (see scheme.js, model 2; model 1 is
+ * the 0.6 assignment, by plain hue distance).
  *
  * All the underlying math (deform.js, hue-deform.js, line-deform.js,
  * cylinder-deform.js, scheme.js, oklch.js) is unchanged from the SvelteKit
@@ -19,7 +20,7 @@
  * part of this surface yet.
  */
 import { hexToOklch, oklchToSrgb } from "./oklch.js";
-import { computeCylinderPoints } from "./cylinder-deform.js";
+import { computeCylinderD, computeCylinderPoints } from "./cylinder-deform.js";
 import { computeColorScheme } from "./scheme.js";
 import { getWheel } from "./ryb-wheel.js";
 import { getGamut } from "./gamut.js";
@@ -73,6 +74,45 @@ const PUBLIC_ROLE_NAME = {
 	Danger: "danger",
 };
 
+function resolveColors(colorOne, colorTwo, wheel) {
+	const colorOneGiven = colorOne !== undefined;
+	colorOne = colorOneGiven ? colorOne : DEFAULTS.colorOne;
+	assertValidHex(colorOne, "colorOne");
+	if (colorTwo === undefined) {
+		colorTwo = colorOneGiven ? adjacentHex(colorOne, wheel) : DEFAULTS.colorTwo;
+	}
+	assertValidHex(colorTwo, "colorTwo");
+	return { colorOne, colorTwo };
+}
+
+function validColorTwoSlot(colorTwoSlot) {
+	if (colorTwoSlot === undefined) return undefined;
+	if (!Number.isInteger(colorTwoSlot) || colorTwoSlot < 1 || colorTwoSlot > HUE_COUNT - 1) {
+		throw new RangeError(`colorTwoSlot must be an integer from 1 to ${HUE_COUNT - 1}, got ${JSON.stringify(colorTwoSlot)}`);
+	}
+	return colorTwoSlot;
+}
+
+const ROLE_MODELS = [1, 2];
+const DEFAULT_ROLE_MODEL = 2;
+
+function validRoleModel(roleModel) {
+	if (roleModel === undefined) return DEFAULT_ROLE_MODEL;
+	if (!ROLE_MODELS.includes(roleModel)) {
+		throw new RangeError(`roleModel must be 1 or 2, got ${JSON.stringify(roleModel)}`);
+	}
+	return roleModel;
+}
+
+/** Scheme.js's role keys renamed to the public names; absent roles left out. */
+function publicRoleIndices(schemeRoles) {
+	const roles = {};
+	for (const roleKey of ROLE_ORDER) {
+		if (roleKey in schemeRoles) roles[PUBLIC_ROLE_NAME[roleKey]] = schemeRoles[roleKey];
+	}
+	return roles;
+}
+
 const HEX_PATTERN = /^#?[0-9a-fA-F]{6}$/;
 
 // Pure grays come out of hexToOklch with round-off chroma (~1e-8), never an
@@ -103,7 +143,7 @@ function anchorFromHex(hex, wheel, gamut) {
  *
  * @param {string} [colorOne] "#rrggbb" hex
  * @param {string} [colorTwo] "#rrggbb" hex
- * @param {{minLightness?: number, maxLightness?: number, minChroma?: number, contrast?: number, shadeCount?: number, wheel?: "rgb" | "ryb", gamut?: "srgb" | "print"}} [options]
+ * @param {{minLightness?: number, maxLightness?: number, minChroma?: number, contrast?: number, shadeCount?: number, wheel?: "rgb" | "ryb", gamut?: "srgb" | "print", colorTwoSlot?: number}} [options]
  *   contrast: 0..1, biases shades toward the light and dark ends of each
  *   ramp (0 = evenly spread); throws a RangeError outside that range
  *   wheel: the hue wheel the 12 hues are spaced around (see ryb-wheel.js);
@@ -111,24 +151,27 @@ function anchorFromHex(hex, wheel, gamut) {
  *   gamut: the chroma limit (see gamut.js); with "print", an input color
  *   outside the print gamut is desaturated to its edge, so it no longer
  *   appears exactly; throws a RangeError for anything else
+ *   colorTwoSlot: 1..11, how many slots after colorOne's slot colorTwo lands,
+ *   counting up the wheel (see tension-ring.js); omit for the nearest slot.
+ *   Throws a RangeError outside that range or when both hues are equal
+ *   roleModel: 2 (the default) keeps success/info/warning/danger in their
+ *   hue families; on a slot other than the nearest one, a role with no
+ *   hue near its family is left out. 1 is the 0.6 assignment, where every
+ *   role is always present
  * @returns {{
- *   schemeName: string, wheelDistance: number,
+ *   schemeName: string, harmonyName: string, wheelDistance: number,
  *   anchors: {colorOne: object, colorTwo: object},
  *   hueCount: number, shadeCount: number,
  *   shadeGrid: object[][],   // [shadeIndex][hueIndex] -> {hue, lightness, chroma, hex, rgb, isAnchor}
- *   roles: Record<string, object[]>,  // role name -> shadeCount-length array of the same point shape
+ *   roles: Record<string, object[]>,  // role name -> shadeCount-length array of the same point shape; absent roles are left out
  * }}
  */
 function generatePalette(colorOne, colorTwo, options = {}) {
 	const wheel = getWheel(options.wheel === undefined ? DEFAULTS.wheel : options.wheel);
 	const gamut = getGamut(options.gamut === undefined ? DEFAULTS.gamut : options.gamut);
-	const colorOneGiven = colorOne !== undefined;
-	colorOne = colorOneGiven ? colorOne : DEFAULTS.colorOne;
-	assertValidHex(colorOne, "colorOne");
-	if (colorTwo === undefined) {
-		colorTwo = colorOneGiven ? adjacentHex(colorOne, wheel) : DEFAULTS.colorTwo;
-	}
-	assertValidHex(colorTwo, "colorTwo");
+	({ colorOne, colorTwo } = resolveColors(colorOne, colorTwo, wheel));
+	const colorTwoSlot = validColorTwoSlot(options.colorTwoSlot);
+	const roleModel = validRoleModel(options.roleModel);
 	const {
 		minLightness = DEFAULTS.minLightness,
 		maxLightness = DEFAULTS.maxLightness,
@@ -144,10 +187,26 @@ function generatePalette(colorOne, colorTwo, options = {}) {
 	if(anchorOne.C < GRAY_CHROMA) throw new Error("colorOne has a chroma of zero. Both input colors must have a chroma greater than zero.")
 	const anchorTwo = anchorFromHex(colorTwo, wheel, gamut);
 	if(anchorTwo.C < GRAY_CHROMA) throw new Error("colorTwo has a chroma of zero. Both input colors must have a chroma greater than zero.")
-	const cylinder = computeCylinderPoints(HUE_COUNT, shadeCount, [anchorOne, anchorTwo], minChroma, minLightness, maxLightness, contrast);
-	// Semantic roles pick by OKLCH hue (closest to reference red, green, ...),
-	// so the scheme sees real hues, not ring angles.
-	const scheme = computeColorScheme(cylinder.D.map(wheel.toHue), cylinder.anchorIndices[0], cylinder.anchorIndices[1]);
+	const cylinder = computeCylinderPoints(
+		HUE_COUNT,
+		shadeCount,
+		[anchorOne, anchorTwo],
+		minChroma,
+		minLightness,
+		maxLightness,
+		contrast,
+		colorTwoSlot,
+	);
+	// Choosing the nearest slot explicitly is the same as omitting it.
+	const nearestRing = computeCylinderD(HUE_COUNT, [anchorOne, anchorTwo]);
+	const nearestSlot = (nearestRing.anchorIndices[1] - nearestRing.anchorIndices[0] + HUE_COUNT) % HUE_COUNT;
+	const colorTwoOnNearestSlot = colorTwoSlot === undefined || colorTwoSlot === nearestSlot;
+	// Semantic roles pick by OKLCH hue, so the scheme sees real hues, not
+	// ring angles.
+	const scheme = computeColorScheme(cylinder.D.map(wheel.toHue), cylinder.anchorIndices[0], cylinder.anchorIndices[1], {
+		model: roleModel,
+		colorTwoOnNearestSlot,
+	});
 
 	const enrichedPoints = cylinder.points.map((point) => {
 		const hue = wheel.toHue(point.D);
@@ -171,13 +230,13 @@ function generatePalette(colorOne, colorTwo, options = {}) {
 	}
 
 	const roles = {};
-	for (const roleKey of ROLE_ORDER) {
-		const hueIndex = scheme.roles[roleKey];
-		roles[PUBLIC_ROLE_NAME[roleKey]] = shadeGrid.map((hueRow) => hueRow[hueIndex]);
+	for (const [roleName, hueIndex] of Object.entries(publicRoleIndices(scheme.roles))) {
+		roles[roleName] = shadeGrid.map((hueRow) => hueRow[hueIndex]);
 	}
 
 	return {
 		schemeName: scheme.schemeName,
+		harmonyName: scheme.harmonyName ?? "primary axis",
 		wheelDistance: scheme.wheelDistance,
 		anchors: {
 			colorOne: { hex: colorOne, hue: anchorOne.H, lightness: anchorOne.L, chroma: anchorOne.C },
@@ -207,6 +266,56 @@ function paletteToHexScheme(palette) {
  */
 export function getScheme(colorOne, colorTwo, options) {
 	return paletteToHexScheme(generatePalette(colorOne, colorTwo, options));
+}
+
+/**
+ * The 12 ring hues (OKLCH degrees), in the same hue order as the scheme's
+ * shades, plus which ring index each anchor sits on. Takes the same colors
+ * and the `wheel` and `colorTwoSlot` options as getScheme.
+ *
+ * @returns {{hues: number[], colorOneIndex: number, colorTwoIndex: number}}
+ */
+export function getHueRing(colorOne, colorTwo, options = {}) {
+	const wheel = getWheel(options.wheel === undefined ? DEFAULTS.wheel : options.wheel);
+	({ colorOne, colorTwo } = resolveColors(colorOne, colorTwo, wheel));
+	const colorTwoSlot = validColorTwoSlot(options.colorTwoSlot);
+	const anchors = [colorOne, colorTwo].map((hex) => ({ D: wheel.toWheel(hexToOklch(hex).H) }));
+	const ring = computeCylinderD(HUE_COUNT, anchors, colorTwoSlot);
+	return {
+		hues: ring.D.map(wheel.toHue),
+		colorOneIndex: ring.anchorIndices[0],
+		colorTwoIndex: ring.anchorIndices[1],
+	};
+}
+
+/**
+ * Assign the 8 roles to a ring of 12 hues you've computed yourself (e.g.
+ * from getHueRing): which hue index each role uses, and the harmony the
+ * tertiary and accent roles form.
+ *
+ * @param {number[]} hues  12 OKLCH hues in ring order
+ * @param {number} colorOneIndex
+ * @param {number} colorTwoIndex
+ * @param {{roleModel?: 1 | 2, colorTwoOnNearestSlot?: boolean}} [options]
+ *   colorTwoOnNearestSlot (default true): false when colorTwo was moved to
+ *   a slot other than its nearest one, which lets roleModel 2 leave a role
+ *   out
+ * @returns {{schemeName: string, harmonyName: string, roles: Record<string, number>, unusedIndices: number[]}}
+ */
+export function assignRoles(hues, colorOneIndex, colorTwoIndex, options = {}) {
+	if (!Array.isArray(hues) || hues.length !== HUE_COUNT) {
+		throw new RangeError(`hues must be an array of ${HUE_COUNT} hues`);
+	}
+	const scheme = computeColorScheme(hues, colorOneIndex, colorTwoIndex, {
+		model: validRoleModel(options.roleModel),
+		colorTwoOnNearestSlot: options.colorTwoOnNearestSlot ?? true,
+	});
+	return {
+		schemeName: scheme.schemeName,
+		harmonyName: scheme.harmonyName ?? "primary axis",
+		roles: publicRoleIndices(scheme.roles),
+		unusedIndices: scheme.unusedIndices,
+	};
 }
 
 // The wheel conversions, for callers that draw or label the wheel themselves.

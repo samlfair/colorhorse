@@ -16,6 +16,7 @@
 		hues = hueDegrees, // OKLCH hues for the fill colors; hueDegrees are wheel angles
 		gamut = "srgb",
 		rings = [{ chromaValues: [], lightness: 0.6, anchors: [] }],
+		title = "Saturation of each hue",
 	} = $props();
 
 	const ringCenter = { x: 200, y: 200 };
@@ -65,7 +66,13 @@
 </script>
 
 <div class="radar-demo">
-	<svg viewBox="0 0 400 400" width="400" height="400">
+	<svg
+		viewBox="0 0 400 400"
+		width="400"
+		height="400"
+		role="img"
+	>
+		<title>{title}</title>
 		{#each gridCircleRadii as gridCircleRadius (gridCircleRadius)}
 			<circle
 				cx={ringCenter.x}

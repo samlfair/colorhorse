@@ -10,7 +10,9 @@
 		minLightness = 0.1,
 		maxLightness = 0.98,
 		anchorOneIndex,
-		anchorTwoIndex
+		anchorTwoIndex,
+		title = "Lightness of each shade",
+		numberLineTitle = "Lightness of each shade, from black to white",
 	} = $props();
 
 	const curveChartBounds = { leftX: 20, rightX: 580, topY: 15, bottomY: 145 };
@@ -54,7 +56,13 @@
 </script>
 
 <div class="line-demo">
-	<svg viewBox="0 0 600 160" width="600" height="160">
+	<svg
+		viewBox="0 0 600 160"
+		width="600"
+		height="160"
+		role="img"
+	>
+		<title>{title}</title>
 		<polyline points={curveChartPolylinePointString} fill="none" stroke="var(--primary-05)" stroke-width="2" />
 		{#each curveChartCoordinates as curveChartCoordinate, pointIndex (pointIndex)}
 			<circle
@@ -68,7 +76,14 @@
 		{/each}
 	</svg>
 
-	<svg viewBox="0 0 600 60" width="600" height="60" class="number-line">
+	<svg
+		viewBox="0 0 600 60"
+		width="600"
+		height="60"
+		class="number-line"
+		role="img"
+	>
+		<title>{numberLineTitle}</title>
 		<line
 			x1={numberLineBounds.leftX}
 			x2={numberLineBounds.rightX}

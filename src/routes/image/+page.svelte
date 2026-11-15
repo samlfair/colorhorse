@@ -860,7 +860,7 @@
 <style>
 	:global(body) {
 		color: var(--text);
-		font-family: Fraunces;
+		font-family: var(--heading-font);
 		display: block;
 	}
 
@@ -917,11 +917,10 @@
 		text-box-edge: ex alphabetic;
 		margin: 0;
 		width: 100%;
-		font-family: Fraunces;
+		font-family: var(--heading-font);
 		font-style: normal;
 		font-size: 0.8em;
 		font-weight: 800;
-		font-variation-settings: "SOFT" 100;
 		color: var(--title);
 	}
 

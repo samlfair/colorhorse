@@ -6,9 +6,9 @@
  *
  * becomes
  *
- *   <aside class="alert note"><h2>Note</h2><p>Body text.</p></aside>
+ *   <aside class="alert note"><h3>Note</h3><p>Body text.</p></aside>
  *
- * matching the `aside.alert` CSS already in DefaultStyles.css, which supplies
+ * matching the `aside.alert` CSS already in src/lib/styles/default.css, which supplies
  * the icon itself via `content: var(--icon)` -- no icon assets/SVGs needed
  * here at all (unlike remark-alerts/remark-github-alerts).
  *
@@ -54,7 +54,7 @@ export default function remarkSimpleAlerts() {
 			node.children = [
 				{
 					type: 'paragraph',
-					data: { hName: 'h2' },
+					data: { hName: 'h3' },
 					children: [{ type: 'text', value: type[0].toUpperCase() + type.slice(1) }]
 				},
 				...bodyParagraphs

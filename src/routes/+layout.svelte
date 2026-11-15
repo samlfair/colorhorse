@@ -1,14 +1,9 @@
 <script>
+	import "$lib/styles/default.css";
+	import "$lib/styles/typography.css";
+	import "$lib/styles/reset.css";
 
 	let { children } = $props();
 </script>
 
-<svelte:head>
-	<link href="/DefaultStyles.css" rel="stylesheet" />
-	<link href="/TypographyStyles.css" rel="stylesheet" />
-	<link href="/ResetStyles.css" rel="stylesheet" />
-</svelte:head>
-
-
 {@render children()}
-

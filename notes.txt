@@ -1,0 +1,307 @@
+Regions
+Background
+
+Hue 7
+
+Shade 9
+Background (Dark Mode)
+
+Hue 7
+
+Shade 3
+Circle One
+
+Hue 3
+
+Shade 6
+Circle Two
+
+Hue 11
+
+Shade 6
+Overlap
+
+Hue 7
+
+Shade 7
+Head in Circle One
+
+Hue 9
+
+Shade 8
+Head in Circle Two
+
+Hue 5
+
+Shade 8
+Head in Overlap
+
+Hue 1
+
+
+---
+
+Regions
+Background
+
+Hue 1
+
+Shade 3
+Background (Dark Mode)
+
+Hue 1
+
+Shade 3
+Circle One
+
+Hue 11
+
+Shade 9
+Circle Two
+
+Hue 7
+
+Shade 9
+Overlap
+
+Hue 3
+
+Shade 10
+Head in Circle One
+
+Hue 5
+
+Shade 5
+Head in Circle Two
+
+Hue 1
+
+Shade 5
+Head in Overlap
+
+Hue 9
+Share 7
+
+---
+
+Regions
+Background
+
+Hue 1
+
+Shade 9
+Background (Dark Mode)
+
+Hue 1
+
+Shade 3
+Circle One
+
+Hue 11
+
+Shade 9
+Circle Two
+
+Hue 7
+
+Shade 9
+Overlap
+
+Hue 3
+
+Shade 10
+Head in Circle One
+
+Hue 5
+
+Shade 7
+Head in Circle Two
+
+Hue 1
+
+Shade 7
+Head in Overlap
+
+Hue 9
+
+Shade 8
+
+
+---
+
+Regions
+Background
+
+Hue 1
+
+Shade 9
+Background (Dark Mode)
+
+Hue 3
+
+Shade 3
+Head Outside Circles
+
+Hue 1
+
+Shade 6
+Circle One
+
+Hue 5
+
+Shade 5
+Circle Two
+
+Hue 9
+
+Shade 5
+Overlap
+
+Hue 7
+
+Shade 6
+Head in Circle One
+
+Hue 3
+
+Shade 7
+Head in Circle Two
+
+Hue 11
+
+Shade 7
+Head in Overlap
+
+Hue 1
+
+Shade 10
+Geometry
+Overlap35%
+
+Axis39°
+
+Horse Size4.10
+
+Horse Across9
+
+Horse Down 12
+
+---
+
+Previous defaults (in code until 2026-11-14)
+
+Regions
+Background
+
+Hue 3
+
+Shade 9
+Background (Dark Mode)
+
+Hue 3
+
+Shade 3
+Head Outside Circles
+
+Hue 3
+
+Shade 6
+Circle One
+
+Hue 5
+
+Shade 5
+Circle Two
+
+Hue 7
+
+Shade 5
+Overlap
+
+Hue 9
+
+Shade 6
+Head in Circle One
+
+Hue 11
+
+Shade 7
+Head in Circle Two
+
+Hue 12
+
+Shade 7
+Head in Overlap
+
+Hue 1
+
+Shade 8
+Geometry
+Overlap35%
+
+Axis39°
+
+Horse Size3.50
+
+Horse Across4.5
+
+Horse Down6.5
+
+---
+
+Regions
+Background
+
+Hue 1
+
+Shade 9
+Background (Dark Mode)
+
+Hue 1
+
+Shade 5
+Head Outside Circles
+
+Hue 1
+
+Shade 7
+Circle One
+
+Hue 5
+
+Shade 7
+Circle Two
+
+Hue 9
+
+Shade 7
+Overlap
+
+Hue 7
+
+Shade 8
+Head in Circle One
+
+Hue 3
+
+Shade 8
+Head in Circle Two
+
+Hue 11
+
+Shade 8
+Head in Overlap
+
+Hue 1
+
+Shade 10
+Geometry
+Overlap35%
+
+Axis30°
+
+Horse Size4.35
+
+Horse Across14.5
+
+Horse Down14

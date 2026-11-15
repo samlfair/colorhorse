@@ -9,7 +9,15 @@ import {
   wheelIndexDistance,
   REFERENCE_HUES,
   SCHEME_NAMES_BY_DISTANCE,
+  SEMANTIC_ROLE_FAMILIES,
+  MOVED_SLOT_ARC_TOLERANCE,
+  MIN_ROLE_HUE_SEPARATION,
+  HARMONY_TYPES,
+  isHueInRange,
+  degreesOutsideRange,
 } from './scheme.js';
+import { computeCylinderD } from './cylinder-deform.js';
+import { getWheel } from './ryb-wheel.js';
 
 import { describe, it, expect } from 'vitest';
 
@@ -177,6 +185,185 @@ describe('scheme', () => {
       assert(roleIndices.every((i) => i >= 0 && i < 12), 'every role resolves to a valid D-ring index');
       assert(new Set(roleIndices).size === 8, 'all 8 roles are distinct on realistic, unevenly-spaced hues too');
       assert(result.unusedIndices.length === 4, '4 unused indices remain');
+    }
+
+    // ---------------------------------------------------------------------------
+    // 7. Model 2: semantic roles by hue family.
+    // ---------------------------------------------------------------------------
+    {
+      const semanticRoleNames = Object.keys(SEMANTIC_ROLE_FAMILIES);
+      const halfOf = (roleName) => SEMANTIC_ROLE_FAMILIES[roleName].half;
+      const farEnough = (hues, index, others) => others.every((other) => other === index || circularHueDistance(hues[index], hues[other]) >= MIN_ROLE_HUE_SEPARATION);
+      // Can all four semantic roles sit inside their halves, on distinct
+      // free hues kept MIN_ROLE_HUE_SEPARATION apart from every role?
+      const fitsInHalves = (hues, harmonyIndices) => {
+        const free = [...Array(12).keys()].filter((index) => !harmonyIndices.includes(index) && farEnough(hues, index, harmonyIndices));
+        const options = semanticRoleNames.map((roleName) => free.filter((index) => isHueInRange(hues[index], halfOf(roleName))));
+        return (function search(roleIndex, used) {
+          if (roleIndex === options.length) return true;
+          return options[roleIndex].some((index) => !used.includes(index) && farEnough(hues, index, used) && search(roleIndex + 1, [...used, index]));
+        })(0, []);
+      };
+
+      // Range helpers, including a range that wraps through 0.
+      assert(isHueInRange(350, [310, 120]) && isHueInRange(10, [310, 120]) && !isHueInRange(200, [310, 120]), 'isHueInRange wraps through 0');
+      assertClose(degreesOutsideRange(125, [310, 120]), 5, 1e-9, 'degreesOutsideRange measures to the nearer end');
+      assertClose(degreesOutsideRange(300, [310, 120]), 10, 1e-9, 'degreesOutsideRange measures to the nearer end, below');
+
+      // Model 1 is the default and is unchanged by the option.
+      {
+        const hues = [0, 23.5, 47, 74.05, 103.93, 135.94, 169.36, 203.5, 237.64, 271.06, 303.07, 332.95];
+        assert(
+          JSON.stringify(computeColorScheme(hues, 0, 2)) === JSON.stringify(computeColorScheme(hues, 0, 2, { model: 1 })),
+          'model 1 is the default',
+        );
+      }
+
+      // Rings the studio actually produces: both wheels, a grid of seeds,
+      // the nearest slot and every other slot.
+      const X = 12;
+      let nearestCount = 0;
+      let movedCount = 0;
+      let crossedCount = 0;
+      let droppedCount = 0;
+      for (const wheelName of ['rgb', 'ryb']) {
+        const wheel = getWheel(wheelName);
+        for (let angleOne = 0; angleOne < 360; angleOne += 11) {
+          for (let angleTwo = 0; angleTwo < 360; angleTwo += 11) {
+            if (angleOne === angleTwo) continue;
+            const nearest = computeCylinderD(X, [{ D: angleOne }, { D: angleTwo }]);
+            if (nearest.anchorIndices[0] === nearest.anchorIndices[1]) continue;
+            const nearestSlot = (nearest.anchorIndices[1] - nearest.anchorIndices[0] + X) % X;
+            for (let slot = 1; slot < X; slot++) {
+              const onNearestSlot = slot === nearestSlot;
+              if (!onNearestSlot && slot % 3 !== 0) continue;
+              const ring = onNearestSlot ? nearest : computeCylinderD(X, [{ D: angleOne }, { D: angleTwo }], slot);
+              const hues = ring.D.map(wheel.toHue);
+              const [primary, secondary] = ring.anchorIndices;
+              const label = `${wheelName} ${angleOne}/${angleTwo} slot ${slot}`;
+              const result = computeColorScheme(hues, primary, secondary, { model: 2, colorTwoOnNearestSlot: onNearestSlot });
+              const { roles } = result;
+
+              assert(roles.Primary === primary && roles.Secondary === secondary, `${label}: seeds are Primary and Secondary`);
+              const roleIndices = Object.values(roles);
+              assert(new Set(roleIndices).size === roleIndices.length, `${label}: no two roles share a hue`);
+              assert(roleIndices.every((index) => Number.isInteger(index) && index >= 0 && index < X), `${label}: valid indices`);
+              assert(result.unusedIndices.length + roleIndices.length === X, `${label}: every hue is a role or unused`);
+
+              // Tertiary and Accent are one of the listed harmony types.
+              const distance = (secondary - primary + X) % X;
+              const isListedHarmony = HARMONY_TYPES.some(({ name, place }) => {
+                const placed = place(primary, secondary, distance, X);
+                if (!placed || name !== result.harmonyName) return false;
+                const pair = placed.map((index) => ((index % X) + X) % X);
+                return new Set([...pair, roles.Tertiary, roles.Accent]).size === 2;
+              });
+              assert(isListedHarmony, `${label}: harmony is a listed type (${result.harmonyName})`);
+
+              // Free hues in each half, for the chosen harmony.
+              const taken = new Set([primary, secondary, roles.Tertiary, roles.Accent]);
+              const freeIndices = [...Array(X).keys()].filter((index) => !taken.has(index));
+
+              // No semantic role is too close in hue to any other role.
+              for (const roleName of semanticRoleNames) {
+                if (!(roleName in roles)) continue;
+                assert(farEnough(hues, roles[roleName], roleIndices), `${label}: ${roleName} is at least ${MIN_ROLE_HUE_SEPARATION} degrees from every other role`);
+              }
+
+              if (onNearestSlot) {
+                nearestCount++;
+                for (const roleName of semanticRoleNames) {
+                  if (roleName in roles) continue;
+                  // Dropped only if every free hue is too close to a role.
+                  const usable = freeIndices.filter((index) => !roleIndices.includes(index) && farEnough(hues, index, roleIndices));
+                  assert(usable.length === 0, `${label}: ${roleName} is only dropped on the nearest slot when every free hue is too close to another role`);
+                }
+                const crossed = semanticRoleNames.filter((roleName) => roleName in roles && !isHueInRange(hues[roles[roleName]], halfOf(roleName)));
+                if (crossed.length > 0) {
+                  crossedCount++;
+                  // Only when no harmony type lets the roles fit inside their halves.
+                  const anyHarmonyFits = HARMONY_TYPES.some(({ place }) => {
+                    const placed = place(primary, secondary, distance, X);
+                    if (!placed) return false;
+                    const pair = placed.map((index) => ((index % X) + X) % X);
+                    const harmonyIndices = [...new Set([primary, secondary, ...pair])];
+                    return harmonyIndices.length === 4 && fitsInHalves(hues, harmonyIndices);
+                  });
+                  assert(!anyHarmonyFits, `${label}: a role only crosses into the other half when no harmony leaves room (${crossed.join(', ')})`);
+                }
+                // Model 1's harmony is kept whenever the roles all fit their arcs with it.
+                const modelOne = computeColorScheme(hues, primary, secondary);
+                const modelOneFree = [...Array(X).keys()].filter((index) => ![primary, secondary, modelOne.roles.Tertiary, modelOne.roles.Accent].includes(index));
+                const result2 = result;
+                if (result2.harmonyName !== 'primary axis') {
+                  // Then model 1's harmony must have left some role without an in-arc hue.
+                  const modelOneHarmony = [primary, secondary, modelOne.roles.Tertiary, modelOne.roles.Accent];
+                  const inArcOptions = semanticRoleNames.map((roleName) =>
+                    modelOneFree.filter((index) => isHueInRange(hues[index], SEMANTIC_ROLE_FAMILIES[roleName].arc) && farEnough(hues, index, modelOneHarmony)),
+                  );
+                  const fitsInArcs = (function search(roleIndex, used) {
+                    if (roleIndex === inArcOptions.length) return true;
+                    return inArcOptions[roleIndex].some((index) => !used.includes(index) && farEnough(hues, index, used) && search(roleIndex + 1, [...used, index]));
+                  })(0, []);
+                  assert(!fitsInArcs, `${label}: model 1's harmony is only replaced when the roles don't fit their arcs`);
+                }
+              } else {
+                movedCount++;
+                for (const roleName of semanticRoleNames) {
+                  const family = SEMANTIC_ROLE_FAMILIES[roleName];
+                  if (roleName in roles) {
+                    const hue = hues[roles[roleName]];
+                    assert(isHueInRange(hue, family.half), `${label}: ${roleName} stays in its half on a moved slot`);
+                    assert(degreesOutsideRange(hue, family.arc) <= MOVED_SLOT_ARC_TOLERANCE + 1e-9, `${label}: ${roleName} is within ${MOVED_SLOT_ARC_TOLERANCE} degrees of its arc`);
+                  } else {
+                    droppedCount++;
+                    // Dropped only if every eligible free hue is already another role.
+                    const eligible = freeIndices.filter((index) => isHueInRange(hues[index], family.half) && degreesOutsideRange(hues[index], family.arc) <= MOVED_SLOT_ARC_TOLERANCE && farEnough(hues, index, roleIndices));
+                    assert(eligible.every((index) => roleIndices.includes(index)), `${label}: ${roleName} is only dropped when no eligible hue is free`);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      assert(nearestCount > 1000 && movedCount > 1000, `model 2 sweep covers enough rings (${nearestCount} nearest, ${movedCount} moved)`);
+      assert(droppedCount > 0, 'some moved-slot rings drop a role');
+      console.log(`model 2 sweep: ${nearestCount} nearest (${crossedCount} crossed a half), ${movedCount} moved (${droppedCount} roles dropped)`);
+
+      // Seeds at 16 and 75 on the RGB wheel: the warm half holds only three
+      // hues, two of them the seeds, so one warm role has to cross over.
+      {
+        const ring = computeCylinderD(X, [{ D: 16 }, { D: 75 }]);
+        const [primary, secondary] = ring.anchorIndices;
+        const warmHues = ring.D.filter((hue) => isHueInRange(hue, SEMANTIC_ROLE_FAMILIES.Danger.half));
+        assert(warmHues.length === 3, `16/75: the warm half holds three hues (${warmHues.map((hue) => hue.toFixed(0)).join(', ')})`);
+        const result = computeColorScheme(ring.D, primary, secondary, { model: 2 });
+        assert(semanticRoleNames.every((roleName) => roleName in result.roles), '16/75: still all four semantic roles');
+        const crossed = semanticRoleNames.filter((roleName) => !isHueInRange(ring.D[result.roles[roleName]], halfOf(roleName)));
+        assert(crossed.length === 1, `16/75: exactly one role crosses into the other half (${crossed.join(', ')})`);
+        const moved = computeColorScheme(ring.D, primary, secondary, { model: 2, colorTwoOnNearestSlot: false });
+        assert(Object.keys(moved.roles).length === 7, '16/75 under moved-slot rules: the crossing role is dropped instead');
+      }
+
+      // Two near-identical blues: Info takes 254, so Success may not take
+      // 250 beside it, and is left out on a moved slot rather than duplicate it.
+      {
+        const hues = [250, 254, 262, 283, 335, 66, 157, 209, 230, 238, 242, 246];
+        const result = computeColorScheme(hues, 8, 2, { model: 2, colorTwoOnNearestSlot: false });
+        const semanticHues = semanticRoleNames.filter((roleName) => roleName in result.roles).map((roleName) => hues[result.roles[roleName]]);
+        const tooClose = semanticHues.some((hue, index) => semanticHues.some((other, otherIndex) => otherIndex !== index && circularHueDistance(hue, other) < MIN_ROLE_HUE_SEPARATION));
+        assert(!tooClose, 'no two semantic roles are near-identical blues');
+      }
+
+      // The Warning example: its arc holds only the Secondary, so it steps
+      // just past its edge rather than going green.
+      {
+        const hues = [0, 37, 74, 107, 137, 165, 191, 217, 243, 269, 297, 327];
+        const result = computeColorScheme(hues, 0, 2, { model: 2 });
+        assert(hues[result.roles.Warning] === 107, 'Warning steps 2 degrees past its arc to 107');
+        assert(result.harmonyName === 'primary axis', "model 1's harmony is kept when nothing better fits");
+      }
     }
 
     // ---------------------------------------------------------------------------

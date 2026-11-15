@@ -7,9 +7,10 @@ Generate a full, smoothly-related OKLCH color scheme from two anchor colors.
 Give it two hex colors and it places 10 more hues around a color wheel between
 them (minimum-bending-energy relaxed, so the spacing bends smoothly instead of
 jumping), tapers each of the 12 hues into a lightness/chroma ramp, and
-classifies 8 of them into named roles (`primary`, `secondary`, `tertiary`,
-`accent`, `success`, `info`, `warning`, `danger`) by hue distance to reference
-red/green/blue/yellow. Zero runtime dependencies.
+classifies 8 of them into named roles. `primary`, `secondary`, `tertiary` and
+`accent` form a color harmony; `success`, `info`, `warning` and `danger` each
+stay in their own hue family (green, blue, amber, red). Zero runtime
+dependencies.
 
 This is a minimal initial release: `getScheme` is the main export, covering
 the package's core promised functionality. A fuller release may add
@@ -60,7 +61,7 @@ getScheme("#3366cc", "#cc6633", { wheel: "ryb", gamut: "print", contrast: 0.4 })
     smoothly relaxing 12 hues between two real hues. `colorTwo` is optional:
     omit it (with `colorOne` given) for the one-color fallback above; omit
     both for the built-in default pair.
-  - `options`: `{ minLightness = 0.1, maxLightness = 0.98, minChroma = 0.2, contrast = 0, shadeCount = 10, wheel = "rgb", gamut = "srgb" }`.
+  - `options`: `{ minLightness = 0.1, maxLightness = 0.98, minChroma = 0.2, contrast = 0, shadeCount = 10, wheel = "rgb", gamut = "srgb", colorTwoSlot }`.
     Hue count is fixed at 12 -- the palette's internal harmony classification
     (square, analagous, tertiary, ...) is only meaningful for a 12-slot wheel.
   - `minChroma` is kept between 0.01 and the less saturated input color's
@@ -86,6 +87,42 @@ getScheme("#3366cc", "#cc6633", { wheel: "ryb", gamut: "print", contrast: 0.4 })
     palette is reshaped to the smaller gamut, not just clipped at its edge.
     An input color outside the print gamut is desaturated to its edge, so
     it no longer appears exactly. Throws a `RangeError` for any other value.
+  - `colorTwoSlot` (1 to 11) chooses which slot `colorTwo` lands on,
+    counting up the wheel from `colorOne`'s slot. 1 makes the anchors
+    neighbours, with the other ten hues spread round the rest of the wheel.
+    11 puts every hue on the arc from `colorOne` up to `colorTwo`. The ring
+    bends like a material under tension: spacing is graduated around it,
+    and no hue ever passes another. Omit it for the nearest slot (the
+    default). Throws a `RangeError` outside 1 to 11, or when both colors
+    have the same hue.
+  - `roleModel` (`2` or `1`) picks how roles are assigned. `2`, the default
+    since 0.7, keeps each semantic role in its hue family: `success` is
+    green and may fall toward blue but is never yellow; `info` is blue and
+    may fall toward purple; `warning` is amber and may fall toward orange
+    but is never green; `danger` is red, anywhere from orange to warm
+    purple. `danger` and `warning` stay on the warm half of the wheel and
+    `success` and `info` on the cool half, and no two roles share a hue. A
+    semantic role never takes a hue within 15° of another role's: it's
+    left out instead of duplicating, say, a blue that's already used.
+    The tertiary and accent roles keep the usual harmony whenever the
+    semantic roles fit around it, and switch to another harmony (secondary
+    axis, seeds mirrored, rectangle, run, ...) when they don't. On the
+    nearest slot every role is present unless every free hue is too close
+    to another role (which doesn't happen in practice). With `colorTwoSlot` set to
+    any other slot, a semantic role with no hue near its family is left out
+    of the result. `1` is the 0.6 assignment: every role always present, by
+    plain hue distance. Throws a `RangeError` for any other value.
+- **`assignRoles(hues, colorOneIndex, colorTwoIndex, options?)`** —
+  `{ schemeName, harmonyName, roles, unusedIndices }`: the same role
+  assignment for a 12-hue ring you've computed yourself (e.g. with
+  `getHueRing`). `roles` maps each role name to a hue index. `options` is
+  `{ roleModel = 2, colorTwoOnNearestSlot = true }`; pass
+  `colorTwoOnNearestSlot: false` when `colorTwo` was moved off its nearest
+  slot.
+- **`getHueRing(colorOne?, colorTwo?, options?)`** — `{ hues, colorOneIndex,
+  colorTwoIndex }`: the 12 ring hues (OKLCH degrees, in the scheme's hue
+  order) and the slot each anchor sits on. Takes the same colors as
+  `getScheme`, and its `wheel` and `colorTwoSlot` options.
 - **`WHEELS`**, **`getWheel(name)`**, **`rybToOklchHue(angle)`**,
   **`oklchHueToRyb(hue)`** — the wheel names and their hue conversions
   (degrees in, `[0, 360)` out; `getWheel` returns `{ toWheel, toHue }`), for
@@ -95,6 +132,12 @@ getScheme("#3366cc", "#cc6633", { wheel: "ryb", gamut: "print", contrast: 0.4 })
   `{ maxChroma(L, H) }` in OKLCH), and the print limit on its own.
   `scripts/build-print-gamut-table.js` (in the repository, not the published
   package) regenerates the print table from any CMYK ICC profile.
+
+## Changes
+
+- **0.7.0** — `roleModel: 2` is the new default, so `success`, `info`,
+  `warning` and `danger` may come out differently from 0.6 for the same
+  colors. Pass `roleModel: 1` to keep 0.6's roles. New: `assignRoles`.
 
 ## Where this came from
 

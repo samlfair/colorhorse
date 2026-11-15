@@ -1,6 +1,6 @@
 {
 	"name": "colorhorse",
-	"version": "0.6.0",
+	"version": "0.7.0",
 	"description": "Generate a graduated OKLCH color scheme from two anchor colors.",
 	"type": "module",
 	"main": "src/index.js",

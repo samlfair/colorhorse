@@ -1,6 +1,7 @@
 import { solveLinearSystem } from './deform.js';
 import { normalizeHue as normalizeDegrees, circularDelta } from './hue-deform.js';
 import { computeSortedPinPlacement, computeLineDeformation } from './line-deform.js';
+import { computeTensionRing } from './tension-ring.js';
 
 /**
  * Cylinder deformation: combines all three prior mechanisms (circle, line,
@@ -252,6 +253,9 @@ export function findNearestAvailableSlot(nativeD, targetD, usedIndices) {
  *
  * @param {number} X
  * @param {{D: number}[]} anchors  at least one anchor required
+ * @param {number} [colorTwoSlot]  if given, anchor two lands this many slots
+ *   after anchor one (see tension-ring.js) instead of on its nearest slot;
+ *   needs exactly two anchors
  * @returns {{
  *   D: number[],           // final D (degrees, [0,360)) for every point
  *   nativeD: number[],     // the original evenly-spaced D before deformation
@@ -259,8 +263,17 @@ export function findNearestAvailableSlot(nativeD, targetD, usedIndices) {
  *   u: number[],           // raw angular displacement applied to each point
  * }}
  */
-export function computeCylinderD(X, anchors) {
+export function computeCylinderD(X, anchors, colorTwoSlot) {
   const nativeD = Array.from({ length: X }, (_, i) => (i * 360) / X);
+  if (colorTwoSlot !== undefined) {
+    // Anchor one keeps its nearest slot; anchor two goes colorTwoSlot slots
+    // further round, and the ring follows tension-ring.js's model.
+    const anchorOneIndex = findNearestAvailableSlot(nativeD, anchors[0].D, []);
+    const anchorTwoIndex = (anchorOneIndex + colorTwoSlot) % X;
+    const D = computeTensionRing(X, anchorOneIndex, anchors[0].D, anchors[1].D, colorTwoSlot);
+    const u = D.map((d, i) => circularDelta(nativeD[i], d));
+    return { D, nativeD, anchorIndices: [anchorOneIndex, anchorTwoIndex], u };
+  }
   const usedIndices = [];
   const pins = [];
   const anchorIndices = [];
@@ -674,18 +687,19 @@ export function computeCylinderZLevels(numZLevels, anchorOneZ, anchorTwoZ, minL,
  * @param {number} maxL  high end of the Z-level stack (see computeCylinderZLevels)
  * @param {number} [contrast=0]  0..1, biases shades toward both ends of the
  *   Z-level stack (see computeCylinderZLevels)
+ * @param {number} [colorTwoSlot]  see computeCylinderD
  * @returns {{
  *   points: {dIndex:number, zIndex:number, D:number, Z:number, R:number, isAnchor:boolean, anchorPos:(number|null)}[],
  *   D: number[], R: number[][], zLevels: number[],
  *   anchorIndices: number[], anchorZIndices: number[],
  * }}
  */
-export function computeCylinderPoints(X, numZLevels, anchors, minChroma, minL, maxL, contrast = 0) {
+export function computeCylinderPoints(X, numZLevels, anchors, minChroma, minL, maxL, contrast = 0, colorTwoSlot = undefined) {
   if (anchors.length !== 2) {
     throw new Error('computeCylinderPoints requires exactly two anchors: [anchorOne, anchorTwo].');
   }
   const [anchorOne, anchorTwo] = anchors;
-  const { D, anchorIndices } = computeCylinderD(X, anchors);
+  const { D, anchorIndices } = computeCylinderD(X, anchors, colorTwoSlot);
   const ringR = computeCylinderR(X, anchorIndices[0], anchorIndices[1], anchorOne.R, anchorTwo.R, minChroma);
   const { zLevels, anchorOneZIndex, anchorTwoZIndex } = computeCylinderZLevels(numZLevels, anchorOne.Z, anchorTwo.Z, minL, maxL, contrast);
   const anchorZIndices = [anchorOneZIndex, anchorTwoZIndex];

@@ -10,6 +10,7 @@
 	let {
 		points = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45],
 		primaryColor = "#3388ff",
+		title = "Saturation across the shades",
 	} = $props();
 
 	const curveChartBounds = { leftX: 20, rightX: 580, baselineY: 90, maxChromaOffset: 70 };
@@ -44,7 +45,13 @@
 </script>
 
 <div class="curve-demo">
-	<svg viewBox="0 0 600 180" width="600" height="180">
+	<svg
+		viewBox="0 0 600 180"
+		width="600"
+		height="180"
+		role="img"
+	>
+		<title>{title}</title>
 		<line
 			x1={curveChartBounds.leftX}
 			x2={curveChartBounds.rightX}

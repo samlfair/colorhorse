@@ -1,8 +1,14 @@
 <script>
-	const demos = [
+	import { dev } from '$app/environment';
+
+	const allDemos = [
 		{ href: '/', label: 'Color Horse', desc: '120 points on a 3D cylinder, doubling as an OKLCH color palette with a live theme -- the hue, lightness, and chroma demos live here too.' },
+		{ href: '/studio', label: 'Color Horse Studio', desc: 'The same palette with every control in one sticky panel beside the diagrams.' },
+		{ href: '/logo', label: 'Logo', desc: 'Develop the two-circle logo mark: palette colors per region, overlap, axis, and horse placement.' },
 		{ href: '/diagnostics', label: 'Chroma Shape Diagnostics', desc: 'A dev tool proving the cylinder\'s chroma ring is a convex ovoid, not a furrowed heart shape.' }
 	];
+	// The logo editor is development-only (see src/routes/logo/+page.js).
+	const demos = allDemos.filter((demo) => dev || demo.href !== '/logo');
 </script>
 
 <svelte:head>

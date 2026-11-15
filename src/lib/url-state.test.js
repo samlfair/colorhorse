@@ -21,13 +21,13 @@ describe("url-state", () => {
     // are lowercased.
     {
       const query = encodeUrlState(defaults);
-      assert(query === "a=e4572e&b=29335c&dark=0.1&light=0.98&sat=0.2&contrast=0&wheel=rgb&gamut=srgb", `default settings are all encoded, got "${query}"`);
+      assert(query === `a=e4572e&b=29335c&dark=0.1&light=0.98&sat=0.2&contrast=0&shades=10&wheel=rgb&gamut=srgb&slot=nearest&v=${URL_STATE_VERSION}`, `default settings are all encoded, got "${query}"`);
     }
 
     // Values are rounded.
     {
       const query = encodeUrlState({ ...defaults, dark: 0.08004, light: 0.9612, sat: 0.151, contrast: 0.6 });
-      assert(query === "a=e4572e&b=29335c&dark=0.08&light=0.961&sat=0.15&contrast=0.6&wheel=rgb&gamut=srgb", `settings are encoded and rounded, got "${query}"`);
+      assert(query === `a=e4572e&b=29335c&dark=0.08&light=0.961&sat=0.15&contrast=0.6&shades=10&wheel=rgb&gamut=srgb&slot=nearest&v=${URL_STATE_VERSION}`, `settings are encoded and rounded, got "${query}"`);
     }
 
     // A non-numeric setting is left out rather than written as "NaN".
@@ -38,12 +38,22 @@ describe("url-state", () => {
 
     // Round trip: decode(encode(settings)) gives the settings back.
     {
-      const settings = { colorOne: "#e4572e", colorTwo: "#29335c", dark: 0.05, light: 0.97, sat: 0.15, contrast: 0.6, wheel: "ryb", gamut: "print" };
+      const settings = { colorOne: "#e4572e", colorTwo: "#29335c", dark: 0.05, light: 0.97, sat: 0.15, contrast: 0.6, wheel: "ryb", gamut: "print", shades: 14, slot: 7 };
       const decoded = decodeUrlState(`?${encodeUrlState(settings)}`);
       for (const [key, value] of Object.entries(settings)) {
         assert(decoded[key] === value, `round trip preserves ${key} (expected ${value}, got ${decoded[key]})`);
       }
-      assert(decoded.version === URL_STATE_VERSION, "a link without v= decodes as the current version");
+      assert(decoded.version === URL_STATE_VERSION, "a new link round-trips as the current version");
+    }
+
+    // Versions: links from before v= was written are version 1; a page can
+    // write an older version explicitly; a fresh visit is the current one.
+    {
+      assert(decodeUrlState("a=e4572e&b=29335c&dark=0.1").version === 1, "a link with settings but no v= decodes as version 1");
+      assert(decodeUrlState("").version === URL_STATE_VERSION, "a fresh visit decodes as the current version");
+      assert(decodeUrlState(encodeUrlState({ ...defaults, version: 1 })).version === 1, "an explicit version 1 round-trips");
+      assert(decodeUrlState("a=e4572e&v=0").version === 1, "an invalid v= falls back to version 1 for a link with settings");
+      assert(decodeUrlState("v=7").version === 7, "an unknown future version is reported as-is, for the page to handle");
     }
 
     // Omitted settings are absent, so the page keeps its own defaults.
@@ -73,6 +83,18 @@ describe("url-state", () => {
       assert(decodeUrlState("gamut=Print").gamut === "print", "gamut is case-insensitive");
       assert(!("gamut" in decodeUrlState("gamut=cmyk")), "an unknown gamut is ignored");
       assert(!("gamut" in decodeUrlState("a=e4572e")), "a missing gamut is absent, so old links stay on sRGB");
+      assert(decodeUrlState("shades=2").shades === 4, "shades is clamped up to 4");
+      assert(decodeUrlState("shades=99").shades === 20, "shades is clamped down to 20");
+      assert(decodeUrlState("shades=7.6").shades === 8, "shades is rounded to a whole number");
+      assert(!("shades" in decodeUrlState("shades=many")), "a non-numeric shades is ignored");
+      assert(!("shades" in decodeUrlState("a=e4572e")), "a missing shades is absent, so old links keep 10 shades");
+      assert(decodeUrlState("slot=Nearest").slot === "nearest", "slot=nearest decodes, case-insensitively");
+      assert(decodeUrlState("slot=11").slot === 11, "slot 11 decodes as a number");
+      for (const badSlot of ["0", "12", "1.5", "-3", "abc", ""]) {
+        assert(!("slot" in decodeUrlState(`slot=${badSlot}`)), `slot=${badSlot} is ignored`);
+      }
+      assert(!("slot" in decodeUrlState("a=e4572e")), "a missing slot is absent, so old links stay on the nearest slot");
+      assert(!encodeUrlState({ ...defaults, slot: 12 }).includes("slot"), "an out-of-range slot isn't encoded");
     }
 
     expect(failed, failed + " assertion(s) failed -- see console output above for FAIL: details").toBe(0);

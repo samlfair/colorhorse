@@ -28,12 +28,14 @@
 	 */
 	import { onMount, onDestroy } from "svelte";
 	import { replaceState } from "$app/navigation";
-	import { computeCylinderPoints, computeCylinderZLevels } from "$lib/cylinder-deform.js";
+	import { computeCylinderD, computeCylinderPoints, computeCylinderZLevels } from "$lib/cylinder-deform.js";
+	import { normalizeHue } from "$lib/hue-deform.js";
+	import { MIN_GAP } from "$lib/tension-ring.js";
 	import { hexToOklch, oklchToSrgb } from "$lib/oklch.js";
 	import { computeColorScheme } from "$lib/scheme.js";
 	import compileCSS from "$lib/compileCSS.js";
 	import { buildAseFile } from "$lib/ase.js";
-	import { encodeUrlState, decodeUrlState, URL_STATE_DEFAULTS } from "$lib/url-state.js";
+	import { encodeUrlState, decodeUrlState, URL_STATE_DEFAULTS, SHADE_COUNT_RANGE } from "$lib/url-state.js";
 	import { getWheel, getGamut } from "colorhorse";
 	import Logo from "$lib/Logo.svelte"
 	import CircleDemo from "$lib/CircleDemo.svelte"
@@ -51,7 +53,9 @@
 	import * as content from "./../lib/Content.svx"
 
 	const NUM_D = 12;
-	const NUM_Z = 10;
+	// The page's own theme is written against --{role}-01..10, so it always
+	// uses a 10-shade palette, whatever shade count the palette itself has.
+	const THEME_SHADE_COUNT = 10;
 	const ROLE_ORDER = [
 		"Primary",
 		"Secondary",
@@ -179,6 +183,8 @@
 	let hueWheel = $derived(getWheel(wheel));
 	let gamut = $state(URL_STATE_DEFAULTS.gamut); // "srgb" | "print"
 	let chromaGamut = $derived(getGamut(gamut));
+	let colorTwoSlot = $state(URL_STATE_DEFAULTS.slot); // "nearest" | 1..11
+	let shadeCount = $state(URL_STATE_DEFAULTS.shades);
 	let azimuth = $state(30);
 	let elevation = $state(18);
 	let themeMode = $state("system"); // 'light' | 'dark' | 'system'
@@ -225,6 +231,8 @@
 		contrast = settingsFromUrl.contrast ?? contrast;
 		wheel = settingsFromUrl.wheel ?? wheel;
 		gamut = settingsFromUrl.gamut ?? gamut;
+		colorTwoSlot = settingsFromUrl.slot ?? colorTwoSlot;
+		shadeCount = settingsFromUrl.shades ?? shadeCount;
 		colorized = true
 		anchorsSeeded = true
 
@@ -342,6 +350,8 @@
 			lightnessTwo, lightnessOne, lightnessTwoAdjusted, lightnessOneAdjusted,
 			chromaTwo, chromaOne, chromaTwoAdjusted, chromaOneAdjusted,
 		];
+		// Seen from the other color, the same ring puts it 12 - n slots on.
+		if (colorTwoSlot !== "nearest") colorTwoSlot = NUM_D - colorTwoSlot;
 	}
 
 	// Switching wheels re-derives the hue sliders from the input colors, which
@@ -370,6 +380,10 @@
 			contrast,
 			wheel,
 			gamut,
+			shades: shadeCount,
+			slot: colorTwoSlot,
+			// This page still uses role model 1 (computeColorScheme's default).
+			version: 1,
 		}),
 	);
 	let pendingUrlQuery = null;
@@ -639,9 +653,34 @@
 		if (anchorsSeeded && minChroma > lowerChromaR) minChroma = lowerChromaR;
 	});
 
-	let cyl = $derived(
-		computeCylinderPoints(NUM_D, NUM_Z, anchors, minChroma, minL, maxL, contrast),
+	let nearestColorTwoSlot = $derived.by(() => {
+		const [anchorOneIndex, anchorTwoIndex] = computeCylinderD(NUM_D, anchors).anchorIndices;
+		return (anchorTwoIndex - anchorOneIndex + NUM_D) % NUM_D;
+	});
+	// A chosen slot needs an arc between the two hues to spread over; with
+	// equal hues (e.g. #ff0000 and #800000) fall back to the nearest slot.
+	let anchorsShareHue = $derived.by(() => {
+		const gap = normalizeHue(anchors[1].D - anchors[0].D);
+		return gap < MIN_GAP || gap > 360 - MIN_GAP;
+	});
+	let chosenColorTwoSlot = $derived(
+		colorTwoSlot === "nearest" || anchorsShareHue ? undefined : colorTwoSlot,
 	);
+
+	function computePalette(shades) {
+		return computeCylinderPoints(
+			NUM_D,
+			shades,
+			anchors,
+			minChroma,
+			minL,
+			maxL,
+			contrast,
+			chosenColorTwoSlot,
+		);
+	}
+	let cyl = $derived(computePalette(shadeCount));
+	let themeCyl = $derived(shadeCount === THEME_SHADE_COUNT ? cyl : computePalette(THEME_SHADE_COUNT));
 
 	// Chroma radar rings: one ring per anchor's own shade (Z) level, all 12
 	// hues at that level. Both anchors land on the same ring when they share
@@ -668,8 +707,8 @@
 	});
 
 	// A separate 12-level lightness stack just for LineDemo, matching the
-	// 12-point ring CircleDemo shows -- cyl.zLevels is the real 10-level
-	// stack the palette itself uses (NUM_Z), a different count on purpose.
+	// 12-point ring CircleDemo shows -- cyl.zLevels is the real shadeCount-level
+	// stack the palette itself uses, a different count on purpose.
 	// Computed the same way (min/max lightness pinned as the endpoints), so
 	// every value is always inside [minL, maxL] by construction.
 	let lineDemoLightnessValues = $derived(
@@ -679,12 +718,14 @@
 	// OKLCH hue of each ring slot (cyl.D holds wheel angles).
 	let ringHues = $derived(cyl.D.map(hueWheel.toHue));
 
-	let points = $derived(
-		cyl.points.map((p) => ({
+	function colorPoints(cylinder) {
+		return cylinder.points.map((p) => ({
 			...p,
 			color: oklchToSrgb(p.Z, p.R * chromaGamut.maxChroma(p.Z, ringHues[p.dIndex]), ringHues[p.dIndex]),
-		})),
-	);
+		}));
+	}
+	let points = $derived(colorPoints(cyl));
+	let themePoints = $derived(themeCyl === cyl ? points : colorPoints(themeCyl));
 
 	
 	let curveDemoChromaValuesPrimary = $derived(
@@ -736,6 +777,18 @@
 		computeColorScheme(ringHues, cyl.anchorIndices[0], cyl.anchorIndices[1]),
 	);
 
+	// The palette table's rows: every hue, going round the wheel from
+	// Primary, each labelled with whichever roles (if any) use it.
+	let paletteRows = $derived(
+		Array.from({ length: NUM_D }, (_, wheelStep) => {
+			const dIndex = (scheme.roles.Primary + wheelStep) % NUM_D;
+			return {
+				dIndex,
+				roleNames: ROLE_ORDER.filter((roleName) => scheme.roles[roleName] === dIndex),
+			};
+		}),
+	);
+
 
 	let resolvedThemeIsDark = $derived(
 		themeMode === "system" ? systemPrefersDark : themeMode === "dark",
@@ -748,10 +801,10 @@
 	let paletteVars = $derived.by(() => {
 		const vars = {};
 		const shadeHex = (dIndex, shadeNum) =>
-			points[(shadeNum - 1) * NUM_D + dIndex].color.hex;
+			themePoints[(shadeNum - 1) * NUM_D + dIndex].color.hex;
 		for (const roleName of ROLE_ORDER) {
 			const dIndex = scheme.roles[roleName];
-			for (let shadeNum = 1; shadeNum <= NUM_Z; shadeNum++) {
+			for (let shadeNum = 1; shadeNum <= THEME_SHADE_COUNT; shadeNum++) {
 				vars[
 					"--" +
 						roleName.toLowerCase() +
@@ -822,7 +875,7 @@
 		];
 		for (const roleName of ROLE_ORDER) {
 			const dIndex = scheme.roles[roleName];
-			for (let k = 0; k < NUM_Z; k++) {
+			for (let k = 0; k < shadeCount; k++) {
 				lines.push(
 					"  --" +
 						roleName.toLowerCase() +
@@ -845,7 +898,7 @@
 		for (const roleName of ROLE_ORDER) {
 			const dIndex = scheme.roles[roleName];
 			const hexValues = Array.from(
-				{ length: NUM_Z },
+				{ length: shadeCount },
 				(_, shadeIndex) => `"${points[shadeIndex * NUM_D + dIndex].color.hex}"`,
 			).join(`,\n    `);
 			lines.push("  " + roleName.toLowerCase() + `: [\n    ` + hexValues + `\n  ],`);
@@ -863,7 +916,7 @@
 			const dIndex = scheme.roles[roleName];
 			return {
 				name: displayRoleName(roleName),
-				colors: Array.from({ length: NUM_Z }, (_, shadeIndex) => ({
+				colors: Array.from({ length: shadeCount }, (_, shadeIndex) => ({
 					name: roleName.toLowerCase() + "-" + String(shadeIndex + 1).padStart(2, "0"),
 					hex: points[shadeIndex * NUM_D + dIndex].color.hex,
 				})),
@@ -879,7 +932,7 @@
 		for (const roleName of ROLE_ORDER) {
 			const dIndex = scheme.roles[roleName];
 			result[roleName.toLowerCase()] = Array.from(
-				{ length: NUM_Z },
+				{ length: shadeCount },
 				(_, shadeIndex) => points[shadeIndex * NUM_D + dIndex].color.hex,
 			);
 		}
@@ -892,7 +945,7 @@
 		for (const roleName of ROLE_ORDER) {
 			const dIndex = scheme.roles[roleName];
 			lines.push(displayRoleName(roleName));
-			for (let shadeIndex = 0; shadeIndex < NUM_Z; shadeIndex++) {
+			for (let shadeIndex = 0; shadeIndex < shadeCount; shadeIndex++) {
 				lines.push("  " + String(shadeIndex + 1).padStart(2, "0") + ": " + points[shadeIndex * NUM_D + dIndex].color.hex);
 			}
 		}
@@ -1160,7 +1213,7 @@
 
 {#snippet schemePalette()}
 	 <div class="scroll">
-		<table>
+		<table style:--shade-count={shadeCount}>
 		<!--
 			<thead>
 				<tr>
@@ -1179,21 +1232,11 @@
 			</thead>
 			-->
 			<tbody>
-				{#each ROLE_ORDER as roleName (roleName)}
-					{@const dIndex = scheme.roles[roleName]}
-					{@const exactZIndex =
-						roleName === "Primary"
-							? cyl.anchorZIndices[0]
-							: roleName === "Secondary"
-								? cyl.anchorZIndices[1]
-								: -1}
+				{#each paletteRows as paletteRow (paletteRow.dIndex)}
 					<tr>
-						<th class="role-name">{displayRoleName(roleName)}</th>
-						{#each { length: NUM_Z } as _, k (k)}
-							{@const shadeNum = k + 1}
-							{@const color = points[k * NUM_D + dIndex].color}
-							{@const usageLabels =
-								roleShadeUsage[roleName]?.[shadeNum] ?? []}
+						<th class="role-name">{paletteRow.roleNames.map(displayRoleName).join(", ")}</th>
+						{#each { length: shadeCount } as _, k (k)}
+							{@const color = points[k * NUM_D + paletteRow.dIndex].color}
 							<td style:--color={color.hex}>
 								<span>
 								</span>
@@ -1218,6 +1261,10 @@
 			<input type="range" min=0 max=360 bind:value={hueTwo} oninput={() => hueTwoAdjusted = true} />
 		</label>
 	</div>
+	{@render content.spread()}
+	<div class="circle controls">
+		{@render slotControl()}
+	</div>
 	{@render content.wheel()}
 	<div class="circle controls">
 		{@render wheelSelect()}
@@ -1231,6 +1278,57 @@
 			<option value="srgb">Screen (sRGB)</option>
 			<option value="print">Print (FOGRA39)</option>
 		</select>
+	</label>
+{/snippet}
+
+{#snippet slotControl()}
+	<div class="slot-control">
+		<label>Secondary Color Slot
+			<input
+				type="range"
+				min="1"
+				max={NUM_D - 1}
+				step="1"
+				value={chosenColorTwoSlot ?? nearestColorTwoSlot}
+				disabled={anchorsShareHue}
+				oninput={(event) => colorTwoSlot = Number(event.currentTarget.value)}
+			/>
+		</label>
+		<label class="nearest-slot">
+			<input
+				type="checkbox"
+				checked={colorTwoSlot === "nearest"}
+				onchange={(event) => colorTwoSlot = event.currentTarget.checked ? "nearest" : nearestColorTwoSlot}
+			/>
+			Nearest
+		</label>
+	</div>
+{/snippet}
+
+{#snippet shadeCountInput()}
+	<label>Shades
+		<input
+			type="number"
+			min={SHADE_COUNT_RANGE[0]}
+			max={SHADE_COUNT_RANGE[1]}
+			step="1"
+			value={shadeCount}
+			oninput={(event) => {
+				const typedCount = Number(event.currentTarget.value);
+				if (Number.isInteger(typedCount) && typedCount >= SHADE_COUNT_RANGE[0] && typedCount <= SHADE_COUNT_RANGE[1]) {
+					shadeCount = typedCount;
+				}
+			}}
+			onchange={(event) => {
+				// Leaving the field snaps an out-of-range or partial entry back
+				// into range rather than leaving it showing a count not in use.
+				const typedCount = Math.round(Number(event.currentTarget.value));
+				if (Number.isFinite(typedCount)) {
+					shadeCount = Math.min(Math.max(typedCount, SHADE_COUNT_RANGE[0]), SHADE_COUNT_RANGE[1]);
+				}
+				event.currentTarget.value = String(shadeCount);
+			}}
+		/>
 	</label>
 {/snippet}
 
@@ -1405,6 +1503,8 @@
 						bind:value={minChroma}
 					/>
 				</label>
+				{@render shadeCountInput()}
+				{@render slotControl()}
 				{@render wheelSelect()}
 				{@render gamutSelect()}
 			</div>
@@ -1544,11 +1644,10 @@
 		text-box-edge: cap alphabetic;
 		margin: 0;
 		padding-top: 0.2em;
-		font-family: Fraunces;
+		font-family: var(--heading-font);
 		font-style: normal;
 		font-size: 1em;
 		font-weight: 800;
-		font-variation-settings: "SOFT" 100;
 		color: var(--title);
 	}
 
@@ -1580,7 +1679,7 @@
 		margin-inline: auto;
 		max-width: min(var(--width), 100vi - 10vw);
 		overflow-x: hidden;
-		font-family: "Work Sans";
+		font-family: inherit;
 		padding-bottom: 4lh;
 	}
 
@@ -1629,7 +1728,7 @@
 	section > :global(h2) {
 		width: 100%;
 		font-size: 1.7em;
-		font-family: Fraunces;
+		font-family: var(--heading-font);
 		color: var(--heading);
 		font-weight: 600;
 		text-transform: uppercase;
@@ -1637,7 +1736,7 @@
 
 	.panel > :global(h2) {
 		font-size: 1.8em;
-		font-family: Fraunces;
+		font-family: var(--heading-font);
 		font-weight: 600;
 		font-style: italic;
 		color: var(--panel-heading);
@@ -1664,17 +1763,17 @@
 		width: 100%;
 	}
 
-	:global(aside h2:has(~h2)) {
+	:global(aside h3:has(~h3)) {
 		display: none;
 	}
 
-	:global(aside h2) {
+	:global(aside h3) {
 		font-size: 1.6em;
-		font-family: Fraunces;
+		font-family: var(--heading-font);
 		font-style: italic;
 	}
 
-	:global(h2:before) {
+	:global(h3:before) {
 		display: none;
 	}
 
@@ -1704,7 +1803,7 @@
 		table-layout: fixed;
 		display: grid;
 		gap: 10px;
-		grid-template-columns: min-content repeat(10, 1fr);
+		grid-template-columns: min-content repeat(var(--shade-count, 10), 1fr);
 		width: 100%;
 		border-collapse: separate;
 		border-spacing: 10px 10px;
@@ -1780,6 +1879,18 @@
 
 	.sliders {
 		width: 100%;
+	}
+
+	.controls > .slot-control {
+		max-width: max(300px, 45%);
+		width: 100%;
+	}
+
+	.slot-control .nearest-slot {
+		display: flex;
+		align-items: center;
+		gap: 0.5em;
+		margin-top: 0.4em;
 	}
 	.sliders label {
 		flex: 1;
@@ -1861,7 +1972,7 @@
 		border-radius: 8px;
 		height: 64px;
 		color: #fff;
-		font-family: "Work Sans";
+		font-family: inherit;
 		font-weight: 600;
 		text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 		transition: transform 0.15s ease;
@@ -1987,7 +2098,7 @@
 
 
 	button {
-		font-family: "Work Sans";
+		font-family: inherit;
 		background: var(--background-cta-primary);
 		color: var(--text-cta-primary);
 		font-weight: 600;
