@@ -2623,11 +2623,15 @@
 			}
 		}
 
+		/* The handle keeps its height: the drawer is a flex column capped
+		   at 45dvh, and the handle's only content is visually hidden, so
+		   otherwise it would shrink to nothing and leave no target. */
 		aside > header {
 			position: sticky;
 			top: 0;
 			z-index: 1;
 			display: flex;
+			flex-shrink: 0;
 			align-items: center;
 			height: var(--drawer-handle);
 			padding-inline: 1.25rem;
